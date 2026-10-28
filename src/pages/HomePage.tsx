@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Rocket, Search, ArrowRight, Layers, Flame, Cpu, Shield, Compass, Zap, Anchor, Box, ChevronRight, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Rocket, Search, ArrowRight, Layers, Flame, Cpu, Shield, Compass, Zap, Anchor, Box, ChevronRight, Sparkles, X, CornerDownLeft } from 'lucide-react';
 import { RocketComponent, RocketCategory } from '../types/rocket';
 import { CATEGORIES_INFO } from '../data/initialRocketComponents';
 import { ComponentCard } from '../components/ComponentCard';
@@ -18,15 +18,81 @@ export const HomePage: React.FC<HomePageProps> = ({
   onSearch
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [featuredCategoryFilter, setFeaturedCategoryFilter] = useState('All');
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time live search matches
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return components.filter((c) => {
+      const name = (c.component_name || c.name || '').toLowerCase();
+      const cat = (c.category || '').toLowerCase();
+      const desc = (c.definition_description || c.shortDescription || c.overview || '').toLowerCase();
+      const loc = (c.location_installation_context || c.stageLocation || '').toLowerCase();
+      return name.includes(q) || cat.includes(q) || desc.includes(q) || loc.includes(q);
+    });
+  }, [components, searchQuery]);
+
+  const displayedResults = useMemo(() => searchResults.slice(0, 6), [searchResults]);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleHeroSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsDropdownOpen(false);
+    if (selectedIndex >= 0 && displayedResults[selectedIndex]) {
+      onSelectComponent(displayedResults[selectedIndex].id);
+      return;
+    }
     if (searchQuery.trim()) {
       onSearch(searchQuery.trim());
     } else {
       onNavigate('explore');
     }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen || displayedResults.length === 0) {
+      if (e.key === 'ArrowDown' && searchQuery.trim()) {
+        setIsDropdownOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < displayedResults.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : displayedResults.length - 1));
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && displayedResults[selectedIndex]) {
+        e.preventDefault();
+        setIsDropdownOpen(false);
+        onSelectComponent(displayedResults[selectedIndex].id);
+      }
+    } else if (e.key === 'Escape') {
+      setIsDropdownOpen(false);
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    setIsDropdownOpen(false);
+    onSelectComponent(id);
   };
 
   const featuredComponents = components.filter((c) => c.featured);
@@ -54,61 +120,185 @@ export const HomePage: React.FC<HomePageProps> = ({
   };
 
   return (
-    <div className="space-y-16 pb-16 bg-white">
+    <div className="space-y-16 pb-16 bg-white dark:bg-black transition-colors duration-200">
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-zinc-200 bg-zinc-50/70 py-16 sm:py-24">
+      <section className="relative z-30 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/70 py-16 sm:py-24">
         {/* Subtle engineering grid background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e4e4e7_1px,transparent_1px),linear-gradient(to_bottom,#e4e4e7_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_70%,transparent_100%)] opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#e4e4e7_1px,transparent_1px),linear-gradient(to_bottom,#e4e4e7_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#27272a_1px,transparent_1px),linear-gradient(to_bottom,#27272a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_70%,transparent_100%)] opacity-60 dark:opacity-30" />
+        </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
-          {/* Badge */}
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-zinc-300 text-zinc-900 font-mono text-xs shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-black" />
-            <span className="uppercase tracking-widest font-semibold">Open Aerospace Engineering Repository</span>
-          </div>
-
           {/* Title */}
           <div className="space-y-4 max-w-3xl mx-auto">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-black tracking-tight leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-black dark:text-white tracking-tight leading-tight">
               Explore the Engineering <br className="hidden sm:block" />
               Behind Rockets
             </h1>
-            <p className="text-zinc-600 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
+            <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
               A comprehensive technical catalog for students, systems engineers, and aerospace enthusiasts. Discover the operating physics, material science, and design principles powering modern orbital launch vehicles.
             </p>
           </div>
 
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto">
+          {/* Search Bar with Real-Time Dropdown */}
+          <div ref={searchContainerRef} className="max-w-2xl mx-auto relative z-40">
             <form onSubmit={handleHeroSearch} className="relative flex items-center shadow-sm">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <Search className="w-5 h-5 text-zinc-400" />
+                <Search className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
               </div>
               <input
+                ref={inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search rocket hardware by name, subsystem, or code..."
-                className="w-full pl-12 pr-32 py-4 rounded-xl bg-white border border-zinc-300 text-black placeholder-zinc-400 text-sm sm:text-base focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-mono"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsDropdownOpen(true);
+                  setSelectedIndex(-1);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim()) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Search rocket components..."
+                className="w-full pl-12 pr-36 py-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-sm sm:text-base focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition-all font-mono"
               />
+
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setIsDropdownOpen(false);
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute right-28 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 dark:text-zinc-400 hover:text-black dark:hover:text-white rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+
               <button
                 type="submit"
-                className="absolute right-2 px-5 py-2.5 rounded-lg bg-black hover:bg-zinc-800 text-white font-mono font-semibold text-xs sm:text-sm transition-all flex items-center space-x-1"
+                className="absolute right-2 px-5 py-2.5 rounded-lg bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black font-mono font-semibold text-xs sm:text-sm transition-all flex items-center space-x-1"
               >
                 <span>Search</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </form>
 
+            {/* Real-Time Search Results Dropdown */}
+            {isDropdownOpen && searchQuery.trim().length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden text-left divide-y divide-zinc-100 dark:divide-zinc-800 animate-in fade-in-50 duration-150">
+                {/* Dropdown Header */}
+                <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    {searchResults.length} {searchResults.length === 1 ? 'component found' : 'components found'}
+                  </span>
+                  <span className="hidden sm:inline">Use ↑ ↓ to navigate • Enter to inspect</span>
+                </div>
+
+                {/* Matches List */}
+                {displayedResults.length > 0 ? (
+                  <>
+                    <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {displayedResults.map((item, idx) => {
+                        const itemImg = item.image_storage_path || item.image_url || item.imageUrl;
+                        const isSelected = selectedIndex === idx;
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleSelectItem(item.id)}
+                            onMouseEnter={() => setSelectedIndex(idx)}
+                            className={`px-4 py-3 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                              isSelected ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 min-w-0">
+                              {itemImg ? (
+                                <img
+                                  src={itemImg}
+                                  alt=""
+                                  className="w-10 h-10 rounded-lg object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 shrink-0">
+                                  <Rocket className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                                </div>
+                              )}
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs sm:text-sm font-bold text-black dark:text-white truncate">
+                                    {item.component_name || item.name}
+                                  </span>
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shrink-0">
+                                    {item.category}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                  {item.definition_description || item.shortDescription || item.overview}
+                                </p>
+                              </div>
+                            </div>
+                            <ArrowRight className={`w-4 h-4 shrink-0 transition-transform ${isSelected ? 'translate-x-0.5 text-black dark:text-white' : 'text-zinc-400 dark:text-zinc-500'}`} />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Dropdown Footer Link to Full Catalog */}
+                    <div
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        onSearch(searchQuery.trim());
+                      }}
+                      className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-800 cursor-pointer flex items-center justify-between text-xs font-mono font-semibold text-black dark:text-white transition-colors"
+                    >
+                      <span>View all {searchResults.length} results in Catalog</span>
+                      <div className="flex items-center space-x-1 text-zinc-500 dark:text-zinc-400 text-[11px]">
+                        <span>Search Catalog</span>
+                        <CornerDownLeft className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-8 text-center space-y-2">
+                    <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mx-auto text-zinc-400 dark:text-zinc-500">
+                      <Search className="w-4 h-4" />
+                    </div>
+                    <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                      No components found matching &quot;<span className="text-black dark:text-white font-semibold">{searchQuery}</span>&quot;
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        onSearch(searchQuery.trim());
+                      }}
+                      className="text-xs font-mono font-semibold text-black dark:text-white hover:underline inline-flex items-center space-x-1"
+                    >
+                      <span>Search catalog anyway</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Quick search tags */}
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-[11px] font-mono text-zinc-600">
-              <span className="text-zinc-500">Quick queries:</span>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+              <span className="text-zinc-500 dark:text-zinc-400">Popular:</span>
               {['RS-25 Engine', 'Grid Fins', 'Flight Computer', 'Turbopump', 'Thermal Tiles'].map((tag) => (
                 <button
                   key={tag}
                   type="button"
-                  onClick={() => onSearch(tag)}
-                  className="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-colors"
+                  onClick={() => {
+                    setSearchQuery(tag);
+                    setIsDropdownOpen(true);
+                  }}
+                  className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 transition-colors"
                 >
                   {tag}
                 </button>
@@ -120,16 +310,16 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <button
               onClick={() => onNavigate('explore')}
-              className="px-6 py-3 rounded-xl bg-black hover:bg-zinc-800 text-white font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center space-x-2 shadow-sm"
+              className="px-6 py-3 rounded-xl bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center space-x-2 shadow-sm"
             >
               <Rocket className="w-4 h-4" />
               <span>Explore Components</span>
             </button>
             <button
               onClick={() => onNavigate('categories')}
-              className="px-6 py-3 rounded-xl bg-white hover:bg-zinc-100 text-black border border-zinc-300 font-mono font-semibold text-xs uppercase tracking-wider transition-all flex items-center space-x-2"
+              className="px-6 py-3 rounded-xl bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-black dark:text-white border border-zinc-300 dark:border-zinc-700 font-mono font-semibold text-xs uppercase tracking-wider transition-all flex items-center space-x-2"
             >
-              <Layers className="w-4 h-4 text-black" />
+              <Layers className="w-4 h-4 text-black dark:text-white" />
               <span>Browse Subsystems</span>
             </button>
           </div>
@@ -137,15 +327,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* Category Shortcuts Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-zinc-200 pb-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div>
-            <div className="text-zinc-500 font-mono text-xs uppercase tracking-wider font-semibold">Subsystem Breakdown</div>
-            <h2 className="text-2xl font-bold text-black tracking-tight">Core Aerospace Categories</h2>
+            <div className="text-zinc-500 dark:text-zinc-400 font-mono text-xs uppercase tracking-wider font-semibold">Subsystem Breakdown</div>
+            <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">Core Aerospace Categories</h2>
           </div>
           <button
             onClick={() => onNavigate('categories')}
-            className="text-xs font-mono text-zinc-600 hover:text-black flex items-center space-x-1"
+            className="text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white flex items-center space-x-1"
           >
             <span>View Subsystem Guides</span>
             <ChevronRight className="w-4 h-4" />
@@ -160,25 +350,25 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div
                 key={cat.id}
                 onClick={() => onNavigate('explore', cat.id)}
-                className="group p-5 bg-white hover:bg-zinc-50 border border-zinc-200 hover:border-black rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-3 shadow-xs"
+                className="group p-5 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-3 shadow-xs"
               >
                 <div className="flex items-start justify-between">
-                  <div className="p-2.5 rounded-lg border border-zinc-300 bg-zinc-100 text-black">
+                  <div className="p-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white">
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className="font-mono text-xs text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
+                  <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
                     {count} {count === 1 ? 'part' : 'parts'}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-zinc-950 group-hover:text-black transition-colors">
+                  <h3 className="text-sm font-bold text-zinc-950 dark:text-white group-hover:text-black dark:group-hover:text-zinc-200 transition-colors">
                     {cat.title}
                   </h3>
-                  <p className="text-xs text-zinc-600 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
                     {cat.shortDescription}
                   </p>
                 </div>
-                <div className="pt-2 text-[11px] font-mono text-black font-semibold group-hover:translate-x-1 transition-transform flex items-center space-x-1">
+                <div className="pt-2 text-[11px] font-mono text-black dark:text-zinc-200 font-semibold group-hover:translate-x-1 transition-transform flex items-center space-x-1">
                   <span>Explore items</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
@@ -190,27 +380,27 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Featured Hardware Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-zinc-200 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div className="space-y-1">
-            <div className="flex items-center space-x-2 text-zinc-500 font-mono text-xs uppercase tracking-wider font-semibold">
-              <Sparkles className="w-3.5 h-3.5 text-black" />
-              <span>Laboratory Highlights • {baseFeatured.length} Curated Items</span>
+            <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 font-mono text-xs uppercase tracking-wider font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-black dark:text-white" />
+              <span>Highlights</span>
             </div>
-            <h2 className="text-2xl font-bold text-black tracking-tight">Featured Flight Hardware</h2>
+            <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">Featured Components</h2>
           </div>
 
           <div className="flex items-center space-x-3">
             <button
               onClick={() => onNavigate('admin')}
-              className="text-xs font-mono text-zinc-600 hover:text-black hidden sm:flex items-center space-x-1 border border-zinc-200 hover:border-black rounded-lg px-2.5 py-1 transition-colors"
+              className="text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white hidden sm:flex items-center space-x-1 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 rounded-lg px-2.5 py-1 transition-colors"
             >
               <span>Manage Highlights</span>
             </button>
             <button
               onClick={() => onNavigate('explore')}
-              className="text-xs font-mono font-semibold text-black hover:text-zinc-700 flex items-center space-x-1"
+              className="text-xs font-mono font-semibold text-black dark:text-white hover:text-zinc-700 dark:hover:text-zinc-300 flex items-center space-x-1"
             >
-              <span>View All Catalog ({components.length})</span>
+              <span>View Catalog</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -219,11 +409,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* Subsystem Filter Pills for Featured Hardware */}
         {featuredCategories.length > 2 && (
           <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none text-xs font-mono">
-            <span className="text-zinc-500 shrink-0 mr-1 text-[11px]">Filter by Subsystem:</span>
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 mr-1 text-[11px]">Subsystem:</span>
             {featuredCategories.map((cat) => {
-              const count = cat === 'All' 
-                ? baseFeatured.length 
-                : baseFeatured.filter((c) => c.category === cat).length;
               const isActive = featuredCategoryFilter === cat;
               return (
                 <button
@@ -231,16 +418,11 @@ export const HomePage: React.FC<HomePageProps> = ({
                   onClick={() => setFeaturedCategoryFilter(cat)}
                   className={`px-3 py-1 rounded-full border transition-all shrink-0 flex items-center space-x-1.5 ${
                     isActive
-                      ? 'bg-black text-white border-black font-semibold'
-                      : 'bg-white text-zinc-700 hover:text-black hover:bg-zinc-100 border-zinc-300'
+                      ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white font-semibold'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 border-zinc-300 dark:border-zinc-700'
                   }`}
                 >
                   <span>{cat}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isActive ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                  }`}>
-                    {count}
-                  </span>
                 </button>
               );
             })}
@@ -258,17 +440,17 @@ export const HomePage: React.FC<HomePageProps> = ({
             ))}
           </div>
         ) : (
-          <div className="p-12 text-center border border-dashed border-zinc-300 rounded-2xl bg-zinc-50/50 space-y-3">
-            <div className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto text-zinc-500">
-              <Sparkles className="w-5 h-5 text-zinc-500" />
+          <div className="p-12 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/50 space-y-3">
+            <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mx-auto text-zinc-500">
+              <Sparkles className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
             </div>
-            <h3 className="text-sm font-bold text-black font-mono">No Featured Hardware In This Category</h3>
-            <p className="text-xs text-zinc-600 max-w-sm mx-auto">
+            <h3 className="text-sm font-bold text-black dark:text-white font-mono">No Featured Hardware In This Category</h3>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-sm mx-auto">
               No components in &quot;{featuredCategoryFilter}&quot; are currently flagged as featured highlights.
             </p>
             <button
               onClick={() => setFeaturedCategoryFilter('All')}
-              className="px-3.5 py-1.5 bg-black text-white rounded-lg text-xs font-mono font-semibold hover:bg-zinc-800 transition-colors"
+              className="px-3.5 py-1.5 bg-black dark:bg-white text-white dark:text-black rounded-lg text-xs font-mono font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
             >
               Reset to All Featured
             </button>
@@ -278,46 +460,46 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Rocket Anatomy Educational Blueprint Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 sm:p-10 space-y-8">
+        <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-10 space-y-8">
           <div className="max-w-2xl space-y-2">
-            <span className="text-zinc-500 font-mono text-xs uppercase tracking-widest font-semibold">
+            <span className="text-zinc-500 dark:text-zinc-400 font-mono text-xs uppercase tracking-widest font-semibold">
               Aerospace Systems Integration
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-black">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white">
               How Launch Vehicle Subsystems Work Together
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
               A multi-stage orbital rocket is not a single engine, but a tightly coupled integration of fluid dynamics, hypersonic aerothermodynamics, fault-tolerant electronics, and structural mechanics.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-5 bg-white border border-zinc-200 rounded-xl space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs font-bold">
+            <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs font-bold">
                 <Box className="w-4 h-4" />
-                <span>01. Atmospheric Ascent & Staging</span>
+                <span>Atmospheric Ascent & Staging</span>
               </div>
-              <p className="text-xs text-zinc-600 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 Booster engines fire at sea-level pressure. High-frequency guidance computers steer the gimbal actuators through Max-Q until fuel exhaustion, upon which pneumatic pushers separate the spent stage.
               </p>
             </div>
 
-            <div className="p-5 bg-white border border-zinc-200 rounded-xl space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs font-bold">
+            <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs font-bold">
                 <Compass className="w-4 h-4" />
-                <span>02. Vacuum Trajectory & GNC</span>
+                <span>Vacuum Trajectory & GNC</span>
               </div>
-              <p className="text-xs text-zinc-600 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 Above the atmosphere, composite fairings jettison to drop dead weight. Upper stage engines ignite while ring laser gyroscopes and cold gas RCS thrusters point precisely toward orbital insertion.
               </p>
             </div>
 
-            <div className="p-5 bg-white border border-zinc-200 rounded-xl space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs font-bold">
+            <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs font-bold">
                 <Shield className="w-4 h-4" />
-                <span>03. Reentry & Controlled Recovery</span>
+                <span>Reentry & Controlled Recovery</span>
               </div>
-              <p className="text-xs text-zinc-600 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 Reusable boosters deploy titanium grid fins to steer through hypersonic plasma friction. PICA-X heat shields absorb thermal flux before supersonic drogues or landing burn thrusters touch down.
               </p>
             </div>

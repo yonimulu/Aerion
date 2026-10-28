@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
     background-color: #ffffff;
@@ -7,6 +9,11 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark body {
+    background-color: #000000;
+    color: #f4f4f5;
   }
 
   /* Clean neutral scrollbar */
@@ -17,11 +24,20 @@
   ::-webkit-scrollbar-track {
     background: #f4f4f5;
   }
+  .dark ::-webkit-scrollbar-track {
+    background: #09090b;
+  }
   ::-webkit-scrollbar-thumb {
     background: #d4d4d8;
     border-radius: 4px;
   }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #27272a;
+  }
   ::-webkit-scrollbar-thumb:hover {
     background: #a1a1aa;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
   }
 }

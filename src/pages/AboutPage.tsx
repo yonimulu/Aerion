@@ -38,71 +38,71 @@ export const AboutPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 bg-white">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 bg-white dark:bg-black transition-colors duration-200">
       {/* Page Header */}
-      <div className="space-y-2 border-b border-zinc-200 pb-6">
-        <div className="flex items-center space-x-2 text-zinc-600 font-mono text-xs uppercase tracking-widest font-semibold">
-          <Info className="w-4 h-4 text-black" />
+      <div className="space-y-2 border-b border-zinc-200 dark:border-zinc-800 pb-6">
+        <div className="flex items-center space-x-2 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase tracking-widest font-semibold">
+          <Info className="w-4 h-4 text-black dark:text-white" />
           <span>Educational Mission & Documentation</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-black tracking-tight">
-          About Rocket Parts Explorer
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight">
+          About Aerion
         </h1>
-        <p className="text-zinc-600 text-sm max-w-2xl leading-relaxed">
+        <p className="text-zinc-600 dark:text-zinc-400 text-sm max-w-2xl leading-relaxed">
           An open educational reference platform designed to help students, aerospace engineering clubs, and space enthusiasts study the inner anatomy of orbital launch vehicles.
         </p>
       </div>
 
       {/* Mission & Purpose Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
-          <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+        <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
             <BookOpen className="w-4 h-4" />
             <span>Educational Purpose & Statement</span>
           </div>
-          <h2 className="text-xl font-bold text-black">
+          <h2 className="text-xl font-bold text-black dark:text-white">
             Demystifying Aerospace Engineering Hardware
           </h2>
-          <div className="text-sm text-zinc-700 space-y-3 leading-relaxed">
+          <div className="text-sm text-zinc-700 dark:text-zinc-300 space-y-3 leading-relaxed">
             <p>
               Rocket science is often perceived as an impenetrable black box. In reality, modern space launch vehicles are composed of distinct mechanical, electrical, thermal, and software sub-assemblies governed by classical thermodynamics, fluid mechanics, and orbital physics.
             </p>
             <p>
-              The primary purpose of <strong className="text-black">Rocket Parts Explorer</strong> is to provide clear, accurate, and accessible technical documentation for each hardware component. Students can study the real engineering compromises between weight, structural strength, chamber pressure, and thermal survivability.
+              The primary purpose of <strong className="text-black dark:text-white">Aerion</strong> is to provide clear, accurate, and accessible technical documentation for each hardware component. Students can study the real engineering compromises between weight, structural strength, chamber pressure, and thermal survivability.
             </p>
-            <div className="p-3 bg-white border border-zinc-300 rounded-lg text-xs font-mono text-black">
+            <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs font-mono text-black dark:text-zinc-200">
               Disclaimer: All data presented is compiled strictly for learning, academic research, and aerospace STEM educational reference.
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
-          <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+        <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
             <Terminal className="w-4 h-4" />
-            <span>Architecture & Extensibility</span>
+            <span>Interactive Catalog Architecture</span>
           </div>
-          <h2 className="text-xl font-bold text-black">
-            Modern, Clean & Firebase Firestore Ready
+          <h2 className="text-xl font-bold text-black dark:text-white">
+            Engineering Systems & Data Structure
           </h2>
-          <div className="text-sm text-zinc-700 space-y-3 leading-relaxed">
+          <div className="text-sm text-zinc-700 dark:text-zinc-300 space-y-3 leading-relaxed">
             <p>
-              This application is built with React 19, TypeScript, and Tailwind CSS. The data layer is engineered around a clean repository pattern in <code className="text-black font-mono text-xs bg-white px-1.5 py-0.5 rounded border border-zinc-300">src/services/componentService.ts</code>.
+              Each hardware entry represents a physical aerospace assembly analyzed across its primary operating parameters, structural interfaces, thermal boundaries, and flight safety constraints.
             </p>
             <p>
-              All component data structures match schema standards for Google Cloud Firestore. While the application ships with immediate offline LocalStorage persistence and realistic aerospace seed records, it is architected for instant transition to cloud databases.
+              The catalog is organized around standard aerospace engineering subsystems, giving students and researchers immediate access to verified specifications, engineering schematics, and launch vehicle documentation.
             </p>
-            <ul className="space-y-1.5 text-xs font-mono text-zinc-700 pt-1">
+            <ul className="space-y-1.5 text-xs font-mono text-zinc-700 dark:text-zinc-300 pt-1">
               <li className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-black" />
-                <span>Zero third-party trackers or telemetry</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+                <span>Multi-stage launch vehicle subsystem classification</span>
               </li>
               <li className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-black" />
-                <span>Responsive across desktop, tablet, and mobile</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+                <span>Operating principles and material specifications</span>
               </li>
               <li className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-black" />
-                <span>Extensible component schema with dynamic specs & links</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+                <span>Direct links to verified aerospace research archives</span>
               </li>
             </ul>
           </div>
@@ -110,16 +110,16 @@ export const AboutPage: React.FC = () => {
       </div>
 
       {/* Aerospace Engineering Glossary */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xs">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xs">
         <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+          <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
             <Compass className="w-4 h-4" />
             <span>Reference Glossary</span>
           </div>
-          <h2 className="text-2xl font-bold text-black tracking-tight">
+          <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">
             Key Aerospace Terminology & Physics Acronyms
           </h2>
-          <p className="text-xs sm:text-sm text-zinc-600">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
             Common acronyms and engineering concepts referenced across rocket component specifications.
           </p>
         </div>
@@ -128,12 +128,12 @@ export const AboutPage: React.FC = () => {
           {glossary.map((item) => (
             <div
               key={item.term}
-              className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl space-y-1 hover:border-black transition-colors"
+              className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-1 hover:border-black dark:hover:border-zinc-600 transition-colors"
             >
-              <div className="font-mono text-xs font-bold text-black">
+              <div className="font-mono text-xs font-bold text-black dark:text-white">
                 {item.term}
               </div>
-              <p className="text-xs text-zinc-700 leading-relaxed">
+              <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {item.definition}
               </p>
             </div>
@@ -142,8 +142,8 @@ export const AboutPage: React.FC = () => {
       </div>
 
       {/* Suggested Reference Repositories */}
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
-        <h3 className="text-base font-bold text-black font-mono uppercase tracking-wider text-xs">
+      <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs">
+        <h3 className="text-base font-bold text-black dark:text-white font-mono uppercase tracking-wider text-xs">
           Recommended Further Reading & STEM Resources
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
@@ -151,13 +151,13 @@ export const AboutPage: React.FC = () => {
             href="https://ntrs.nasa.gov/"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-4 rounded-xl bg-white border border-zinc-200 hover:border-black transition-colors space-y-1 group shadow-xs"
+            className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 transition-colors space-y-1 group shadow-xs"
           >
-            <div className="text-black group-hover:underline font-bold flex items-center justify-between">
+            <div className="text-black dark:text-white group-hover:underline font-bold flex items-center justify-between">
               <span>NASA NTRS</span>
-              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 group-hover:text-black" />
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 group-hover:text-black dark:group-hover:text-white" />
             </div>
-            <p className="text-zinc-600 font-sans text-xs">
+            <p className="text-zinc-600 dark:text-zinc-400 font-sans text-xs">
               Hundreds of thousands of public-domain NASA technical reports and technical memoranda.
             </p>
           </a>
@@ -166,13 +166,13 @@ export const AboutPage: React.FC = () => {
             href="https://www.aiaa.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-4 rounded-xl bg-white border border-zinc-200 hover:border-black transition-colors space-y-1 group shadow-xs"
+            className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 transition-colors space-y-1 group shadow-xs"
           >
-            <div className="text-black group-hover:underline font-bold flex items-center justify-between">
+            <div className="text-black dark:text-white group-hover:underline font-bold flex items-center justify-between">
               <span>AIAA Aerospace</span>
-              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 group-hover:text-black" />
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 group-hover:text-black dark:group-hover:text-white" />
             </div>
-            <p className="text-zinc-600 font-sans text-xs">
+            <p className="text-zinc-600 dark:text-zinc-400 font-sans text-xs">
               American Institute of Aeronautics and Astronautics peer-reviewed journals and standards.
             </p>
           </a>
@@ -181,13 +181,13 @@ export const AboutPage: React.FC = () => {
             href="https://www.faa.gov/space"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-4 rounded-xl bg-white border border-zinc-200 hover:border-black transition-colors space-y-1 group shadow-xs"
+            className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 transition-colors space-y-1 group shadow-xs"
           >
-            <div className="text-black group-hover:underline font-bold flex items-center justify-between">
+            <div className="text-black dark:text-white group-hover:underline font-bold flex items-center justify-between">
               <span>FAA Commercial Space</span>
-              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 group-hover:text-black" />
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 group-hover:text-black dark:group-hover:text-white" />
             </div>
-            <p className="text-zinc-600 font-sans text-xs">
+            <p className="text-zinc-600 dark:text-zinc-400 font-sans text-xs">
               Launch safety regulations, flight license guidelines, and orbital debris mitigation standards.
             </p>
           </a>

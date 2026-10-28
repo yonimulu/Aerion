@@ -399,24 +399,24 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-7xl my-4 sm:my-8 bg-white border border-zinc-300 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-7xl my-4 sm:my-8 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden transition-colors"
         role="dialog"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 shrink-0">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-white font-mono text-xs uppercase tracking-widest bg-black px-2 py-0.5 rounded font-bold">
+              <span className="text-white dark:text-black font-mono text-xs uppercase tracking-widest bg-black dark:bg-white px-2 py-0.5 rounded font-bold">
                 {isEditing ? 'EDIT ENTRY' : 'NEW ENCYCLOPEDIA ENTRY'}
               </span>
-              <span className="font-mono text-xs text-zinc-500">
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
                 Aerospace Science & Engineering Taxonomy
               </span>
             </div>
             <div className="flex items-center space-x-3 mt-1 flex-wrap gap-2">
-              <h2 className="text-lg sm:text-xl font-bold text-black">
+              <h2 className="text-lg sm:text-xl font-bold text-black dark:text-white">
                 {isEditing ? `Edit: ${initialData?.component_name || initialData?.name}` : 'Add Encyclopedia Entry'}
               </h2>
               {/* Header Quick Toggle Badge */}
@@ -428,8 +428,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                 }}
                 className={`inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border transition-colors cursor-pointer ${
                   featured
-                    ? 'bg-black text-white border-black shadow-xs'
-                    : 'bg-white text-zinc-600 border-zinc-300 hover:border-black hover:text-black'
+                    ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-xs'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white'
                 }`}
                 title="Toggle Featured on Homepage"
               >
@@ -441,18 +441,18 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
           <div className="flex items-center space-x-2">
             {/* Mobile View Toggle */}
-            <div className="lg:hidden flex items-center border border-zinc-300 rounded-lg overflow-hidden bg-white text-xs font-mono">
+            <div className="lg:hidden flex items-center border border-zinc-300 dark:border-zinc-700 rounded-lg overflow-hidden bg-white dark:bg-zinc-900 text-xs font-mono">
               <button
                 type="button"
                 onClick={() => setActiveTab('form')}
-                className={`px-3 py-1.5 font-semibold ${activeTab === 'form' ? 'bg-black text-white' : 'text-zinc-600'}`}
+                className={`px-3 py-1.5 font-semibold ${activeTab === 'form' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-600 dark:text-zinc-400'}`}
               >
                 Form
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('preview')}
-                className={`px-3 py-1.5 font-semibold ${activeTab === 'preview' ? 'bg-black text-white' : 'text-zinc-600'}`}
+                className={`px-3 py-1.5 font-semibold ${activeTab === 'preview' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-600 dark:text-zinc-400'}`}
               >
                 Live Preview
               </button>
@@ -477,9 +477,9 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
         )}
 
         {/* Two-Column Body: Form on Left, Live Preview on Right */}
-        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-zinc-200">
+        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-zinc-200 dark:divide-zinc-800">
           {/* Left Column: Structured Form (7 Cols on wide screens) */}
-          <div className={`lg:col-span-7 overflow-y-auto p-6 space-y-8 bg-white ${activeTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
+          <div className={`lg:col-span-7 overflow-y-auto p-6 space-y-8 bg-white dark:bg-zinc-900 ${activeTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
             
             {/* TOP POSITION: Homepage Presentation Featured Highlights Toggle */}
             <div className={`p-4 rounded-xl border-2 transition-all ${
@@ -1202,13 +1202,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
           </div>
 
           {/* Right Column: Real-Time Live Preview (5 Cols on wide screens) */}
-          <div className={`lg:col-span-5 overflow-y-auto p-6 bg-zinc-50 space-y-4 ${activeTab === 'form' ? 'hidden lg:block' : 'block'}`}>
-            <div className="sticky top-0 bg-zinc-50 pb-2 flex items-center justify-between border-b border-zinc-200">
-              <span className="font-mono text-xs uppercase font-bold text-black flex items-center space-x-1.5">
+          <div className={`lg:col-span-5 overflow-y-auto p-6 bg-zinc-50 dark:bg-zinc-950 space-y-4 ${activeTab === 'form' ? 'hidden lg:block' : 'block'}`}>
+            <div className="sticky top-0 bg-zinc-50 dark:bg-zinc-950 pb-2 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
+              <span className="font-mono text-xs uppercase font-bold text-black dark:text-white flex items-center space-x-1.5">
                 <Eye className="w-3.5 h-3.5" />
                 <span>Published Format Preview</span>
               </span>
-              <span className="font-mono text-[10px] text-zinc-500">
+              <span className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
                 Updates in real-time
               </span>
             </div>
@@ -1221,12 +1221,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={handleAttemptClose}
-              className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-black bg-white hover:bg-zinc-100 border border-zinc-300 transition-colors"
+              className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-black dark:text-white bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 transition-colors"
             >
               Cancel
             </button>
@@ -1238,7 +1238,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     onDelete(initialData.id);
                   }
                 }}
-                className="px-3 py-2 rounded-lg text-xs font-mono font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center space-x-1"
+                className="px-3 py-2 rounded-lg text-xs font-mono font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-red-200 dark:border-red-900/50 transition-colors flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Entry</span>
@@ -1251,7 +1251,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
               type="button"
               disabled={isUploadingImage}
               onClick={() => handleSave('draft')}
-              className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-zinc-900 bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-zinc-900 dark:text-zinc-200 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
             >
               Save Draft
             </button>
@@ -1259,7 +1259,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
               type="button"
               disabled={isUploadingImage}
               onClick={() => handleSave('published')}
-              className="px-5 py-2 rounded-lg text-xs font-mono font-bold text-white bg-black hover:bg-zinc-800 disabled:opacity-50 transition-colors flex items-center space-x-1.5 shadow-sm"
+              className="px-5 py-2 rounded-lg text-xs font-mono font-bold text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors flex items-center space-x-1.5 shadow-sm"
             >
               {isUploadingImage ? (
                 <>

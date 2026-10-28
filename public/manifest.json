@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "AERION Aerospace Science & Engineering Encyclopedia",
-  "short_name": "AERION",
+  "name": "Aerion - Aerospace Engineering Catalog",
+  "short_name": "Aerion",
   "description": "Discover, study, and learn about rocket components, flight hardware, and aerospace engineering systems.",
   "start_url": "/",
   "scope": "/",

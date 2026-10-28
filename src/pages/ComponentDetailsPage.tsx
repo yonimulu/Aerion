@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, ExternalLink, Play, CheckCircle2, ShieldCheck, Layers, 
-  Info, Video, BookOpen, Share2, Check, AlertTriangle, FileText, 
-  ShieldAlert, Compass, Calendar
+  Info, Video, BookOpen, Share2, Check, FileText, 
+  ShieldAlert, Compass
 } from 'lucide-react';
 import { RocketComponent } from '../types/rocket';
 import { getCategoryBadgeStyle } from '../components/ComponentCard';
@@ -45,17 +45,15 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
     .slice(0, 3);
 
   const displayImage = component.image_storage_path || component.image_url || component.imageUrl;
-  const entryNum = component.entry_number || '001';
   const compName = component.component_name || component.name;
-  const catalogId = component.catalog_id || component.designation || 'unassigned';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 bg-white">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 bg-white dark:bg-black transition-colors duration-200">
       {/* Top Navigation & Breadcrumb */}
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
         <button
           onClick={onBack}
-          className="inline-flex items-center space-x-2 text-xs font-mono font-semibold text-black hover:bg-zinc-100 bg-white px-3.5 py-2 rounded-lg border border-zinc-300 transition-colors shadow-xs"
+          className="inline-flex items-center space-x-2 text-xs font-mono font-semibold text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900 px-3.5 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 transition-colors shadow-xs"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Return to Catalog</span>
@@ -64,10 +62,10 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={handleCopyLink}
-            className="inline-flex items-center space-x-1.5 text-xs font-mono text-zinc-700 hover:text-black bg-white px-3 py-2 rounded-lg border border-zinc-300 transition-colors shadow-xs"
+            className="inline-flex items-center space-x-1.5 text-xs font-mono text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-white dark:bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 transition-colors shadow-xs"
             title="Share Component URL"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-black" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-black dark:text-white" /> : <Share2 className="w-3.5 h-3.5" />}
             <span>{copied ? 'Link Copied' : 'Share'}</span>
           </button>
         </div>
@@ -76,46 +74,31 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
       {/* Header Info */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Entry Number Badge */}
-          <span className="font-mono text-xs font-bold text-white bg-black px-2.5 py-1 rounded">
-            ENTRY #{entryNum}
-          </span>
-
           {/* Subsystem Category Tag */}
           <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-mono font-medium border ${badge.bg}`}>
             <CategoryIcon className="w-3.5 h-3.5" />
             <span>{component.category}</span>
           </span>
 
-          {/* Catalog ID */}
-          <span className="font-mono text-xs text-zinc-800 bg-zinc-100 px-3 py-1 rounded-md border border-zinc-300">
-            CATALOG ID: <span className="font-bold lowercase">{catalogId}</span>
-          </span>
-
-          {/* Publication Status */}
-          <span
-            className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-              component.status === 'published'
-                ? 'bg-zinc-100 text-black border border-zinc-300'
-                : 'bg-zinc-200 text-zinc-700'
-            }`}
-          >
-            {component.status || 'published'}
-          </span>
+          {component.featured && (
+            <span className="font-mono text-[10px] font-semibold text-white dark:text-black bg-black dark:bg-white px-2 py-0.5 rounded shadow-xs">
+              FEATURED
+            </span>
+          )}
         </div>
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-black tracking-tight leading-tight">
-          {entryNum}. {compName}
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-black dark:text-white tracking-tight leading-tight">
+          {compName}
         </h1>
 
-        <p className="text-base sm:text-lg text-zinc-700 max-w-4xl leading-relaxed">
+        <p className="text-base sm:text-lg text-zinc-700 dark:text-zinc-300 max-w-4xl leading-relaxed">
           {component.definition_description || component.shortDescription || component.overview}
         </p>
       </div>
 
       {/* Large Technical Reference Image */}
       {displayImage && (
-        <div className="relative w-full rounded-2xl overflow-hidden bg-zinc-100 border border-zinc-300 shadow-sm">
+        <div className="relative w-full rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 shadow-sm">
           <div className="aspect-w-16 aspect-h-9 max-h-[520px] w-full flex items-center justify-center overflow-hidden">
             {!imageError ? (
               <img
@@ -125,27 +108,27 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
                 className="w-full h-full object-cover max-h-[520px]"
               />
             ) : (
-              <div className="w-full h-80 flex flex-col items-center justify-center bg-zinc-100 text-zinc-500 font-mono text-sm p-8 text-center">
-                <CategoryIcon className="w-12 h-12 mb-2 text-zinc-400" />
+              <div className="w-full h-80 flex flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 font-mono text-sm p-8 text-center">
+                <CategoryIcon className="w-12 h-12 mb-2 text-zinc-400 dark:text-zinc-500" />
                 <span>[Aerospace Engineering Reference Visual]</span>
-                <span className="text-xs text-zinc-400 mt-1">{displayImage}</span>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{displayImage}</span>
               </div>
             )}
           </div>
 
           {/* Technical image footer overlay */}
-          <div className="bg-white/95 border-t border-zinc-200 px-4 py-2.5 flex flex-wrap items-center justify-between text-[11px] font-mono text-zinc-600 gap-2">
+          <div className="bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-zinc-800 px-4 py-2.5 flex flex-wrap items-center justify-between text-[11px] font-mono text-zinc-600 dark:text-zinc-400 gap-2">
             <div className="flex items-center space-x-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white"></span>
               <span>{component.image_title || 'Flight Hardware Photographic Reference'}</span>
               {component.image_verification_status && (
-                <span className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-800 font-semibold border border-zinc-300">
+                <span className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-800 dark:text-zinc-200 font-semibold border border-zinc-300 dark:border-zinc-700">
                   {component.image_verification_status}
                 </span>
               )}
             </div>
             {component.image_source && (
-              <span>Source: <span className="text-zinc-950 font-semibold">{component.image_source}</span></span>
+              <span>Source: <span className="text-zinc-950 dark:text-white font-semibold">{component.image_source}</span></span>
             )}
           </div>
         </div>
@@ -156,47 +139,47 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
         {/* Left Column (2 cols): All Comprehensive Sections */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Section: Definition and description */}
-          <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-            <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+          {/* Section: Overview */}
+          <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+            <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
               <FileText className="w-4 h-4" />
-              <span>Definition and description</span>
+              <span>Overview</span>
             </div>
-            <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+            <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
               {component.definition_description || component.overview}
             </p>
           </section>
 
-          {/* Section: Purpose and engineering value */}
-          <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-            <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+          {/* Section: Purpose */}
+          <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+            <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
               <ShieldCheck className="w-4 h-4" />
-              <span>Purpose and engineering value</span>
+              <span>Purpose & Role</span>
             </div>
-            <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+            <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
               {component.purpose_engineering_value || component.purpose}
             </p>
           </section>
 
-          {/* Section: Operating principle — how it works */}
-          <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-            <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+          {/* Section: Operating principle */}
+          <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+            <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
               <Info className="w-4 h-4" />
-              <span>Operating principle — how it works</span>
+              <span>Operating Principle</span>
             </div>
-            <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+            <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
               {component.operating_principle || component.operatingPrinciples}
             </p>
           </section>
 
           {/* Section: Location and installation context */}
           {(component.location_installation_context || component.stageLocation) && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <Compass className="w-4 h-4" />
-                <span>Location and installation context</span>
+                <span>Installation Context</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.location_installation_context || component.stageLocation}
               </p>
             </section>
@@ -204,12 +187,12 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Section: Applications and operating context */}
           {component.applications_operating_context && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <Layers className="w-4 h-4" />
-                <span>Applications and operating context</span>
+                <span>Operational Applications</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.applications_operating_context}
               </p>
             </section>
@@ -217,12 +200,12 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Section: Interfaces and system connections */}
           {component.interfaces_system_connections && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <FileText className="w-4 h-4" />
-                <span>Interfaces and system connections</span>
+                <span>System Interfaces</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.interfaces_system_connections}
               </p>
             </section>
@@ -230,12 +213,12 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Section: Identification and verification guidance */}
           {component.identification_verification_guidance && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Identification and verification guidance</span>
+                <span>Verification & Inspection</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.identification_verification_guidance}
               </p>
             </section>
@@ -243,12 +226,12 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Section: Safety and limitations */}
           {component.safety_limitations && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <ShieldAlert className="w-4 h-4" />
-                <span>Safety and limitations</span>
+                <span>Safety & Limits</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.safety_limitations}
               </p>
             </section>
@@ -256,30 +239,28 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Section: Technical reference guidance */}
           {component.technical_reference_guidance && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-2.5 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <BookOpen className="w-4 h-4" />
-                <span>Technical reference guidance</span>
+                <span>Technical References</span>
               </div>
-              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-line">
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line">
                 {component.technical_reference_guidance}
               </p>
             </section>
           )}
 
-          {/* Key Educational Facts (if present) */}
+          {/* Key Insights (if present) */}
           {component.facts && component.facts.length > 0 && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-4 shadow-xs">
-              <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-4 shadow-xs">
+              <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Key Educational Facts & Engineering Insights</span>
+                <span>Key Insights</span>
               </div>
               <ul className="space-y-3">
                 {component.facts.map((fact, idx) => (
-                  <li key={idx} className="flex items-start space-x-3 text-xs sm:text-sm text-zinc-700">
-                    <span className="font-mono text-black text-xs shrink-0 mt-0.5 font-bold">
-                      [{String(idx + 1).padStart(2, '0')}]
-                    </span>
+                  <li key={idx} className="flex items-start space-x-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white shrink-0 mt-2" />
                     <span className="leading-relaxed">{fact}</span>
                   </li>
                 ))}
@@ -289,17 +270,17 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Video Resource (if present) */}
           {component.videoUrl && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-7 space-y-4 shadow-xs">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-7 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-black font-mono text-xs uppercase tracking-wider font-bold">
+                <div className="flex items-center space-x-2 text-black dark:text-white font-mono text-xs uppercase tracking-wider font-bold">
                   <Video className="w-4 h-4" />
-                  <span>Video Resource & Live Test Footage</span>
+                  <span>Video Documentation</span>
                 </div>
                 <a
                   href={component.videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-mono text-zinc-600 hover:text-black flex items-center space-x-1"
+                  className="text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white flex items-center space-x-1"
                 >
                   <span>Open Video in New Tab</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -307,7 +288,7 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
               </div>
 
               {youtubeEmbedUrl ? (
-                <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-zinc-300 bg-zinc-100">
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-950">
                   <iframe
                     src={youtubeEmbedUrl}
                     title={`${compName} Video Footage`}
@@ -317,21 +298,21 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
                   />
                 </div>
               ) : (
-                <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg flex items-center justify-between">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center text-black">
+                    <div className="w-10 h-10 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-black dark:text-white">
                       <Play className="w-5 h-5 fill-current" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-black">External Video Documentation</h4>
-                      <p className="text-xs text-zinc-600 truncate max-w-sm">{component.videoUrl}</p>
+                      <h4 className="text-sm font-bold text-black dark:text-white">External Video</h4>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate max-w-sm">{component.videoUrl}</p>
                     </div>
                   </div>
                   <a
                     href={component.videoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3.5 py-1.5 rounded-lg bg-black hover:bg-zinc-800 text-white font-mono text-xs font-semibold"
+                    className="px-3.5 py-1.5 rounded-lg bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black font-mono text-xs font-semibold"
                   >
                     Watch Video
                   </a>
@@ -341,48 +322,20 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
           )}
         </div>
 
-        {/* Right Column (1 col): Technical Specs Matrix & Reference Links */}
+        {/* Right Column: Technical Specs & References */}
         <div className="space-y-6">
-          {/* Record Metadata Card */}
-          <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-xs font-mono text-zinc-600 space-y-2.5">
-            <h3 className="font-bold text-black text-xs uppercase tracking-wider border-b border-zinc-200 pb-2">
-              Website Record Specification
-            </h3>
-            <div className="flex justify-between">
-              <span>Catalog ID:</span>
-              <span className="text-black font-bold lowercase">{catalogId}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Entry Number:</span>
-              <span className="text-black font-bold">#{entryNum}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Publication Status:</span>
-              <span className="text-black font-semibold uppercase">{component.status || 'published'}</span>
-            </div>
-            {component.review_date && (
-              <div className="flex justify-between">
-                <span>Review Date:</span>
-                <span className="text-black font-medium">{component.review_date}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span>System Verification:</span>
-              <span className="text-black font-bold">Aerospace Qualified</span>
-            </div>
-          </div>
 
           {/* Specifications Matrix Card (if present) */}
           {component.specifications && Object.keys(component.specifications).length > 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-4 shadow-xs">
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black border-b border-zinc-200 pb-2">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4 shadow-xs">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-2">
                 Technical Specifications
               </h3>
-              <dl className="divide-y divide-zinc-200 text-xs">
+              <dl className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
                 {Object.entries(component.specifications).map(([key, value]) => (
                   <div key={key} className="py-2.5 flex flex-col space-y-0.5">
-                    <dt className="text-zinc-500 font-mono text-[11px] font-medium">{key}</dt>
-                    <dd className="text-zinc-950 font-bold">{value}</dd>
+                    <dt className="text-zinc-500 dark:text-zinc-400 font-mono text-[11px] font-medium">{key}</dt>
+                    <dd className="text-zinc-950 dark:text-white font-bold">{value}</dd>
                   </div>
                 ))}
               </dl>
@@ -391,8 +344,8 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Reference Links & Papers (if present) */}
           {component.referenceLinks && component.referenceLinks.length > 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-3 shadow-xs">
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black border-b border-zinc-200 pb-2 flex items-center space-x-1.5">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-3 shadow-xs">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-2 flex items-center space-x-1.5">
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>Reference Documents</span>
               </h3>
@@ -403,12 +356,12 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group p-2.5 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-black flex items-start justify-between transition-colors"
+                      className="group p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 flex items-start justify-between transition-colors"
                     >
-                      <span className="text-zinc-800 group-hover:text-black font-medium leading-tight">
+                      <span className="text-zinc-800 dark:text-zinc-200 group-hover:text-black dark:group-hover:text-white font-medium leading-tight">
                         {link.title}
                       </span>
-                      <ExternalLink className="w-3.5 h-3.5 text-zinc-400 group-hover:text-black shrink-0 ml-2 mt-0.5" />
+                      <ExternalLink className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 group-hover:text-black dark:group-hover:text-white shrink-0 ml-2 mt-0.5" />
                     </a>
                   </li>
                 ))}
@@ -418,26 +371,26 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 
           {/* Related Components in Same Category */}
           {relatedComponents.length > 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-3 shadow-xs">
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black border-b border-zinc-200 pb-2">
-                Related {component.category} Hardware
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-3 shadow-xs">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                Related Components
               </h3>
               <div className="space-y-2.5">
                 {relatedComponents.map((rel) => (
                   <button
                     key={rel.id}
                     onClick={() => onSelectRelated && onSelectRelated(rel.id)}
-                    className="w-full text-left p-2.5 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-black transition-all flex items-center justify-between group"
+                    className="w-full text-left p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 transition-all flex items-center justify-between group"
                   >
                     <div className="space-y-0.5 max-w-[85%]">
-                      <div className="text-xs font-bold text-zinc-900 group-hover:text-black truncate">
+                      <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white truncate">
                         {rel.component_name || rel.name}
                       </div>
-                      <div className="text-[10px] font-mono text-zinc-500 truncate">
-                        {rel.catalog_id || rel.designation || 'Aerospace sub-assembly'}
+                      <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+                        {rel.category}
                       </div>
                     </div>
-                    <ArrowLeft className="w-3.5 h-3.5 text-zinc-400 group-hover:text-black transform rotate-180" />
+                    <ArrowLeft className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 group-hover:text-black dark:group-hover:text-white transform rotate-180" />
                   </button>
                 ))}
               </div>

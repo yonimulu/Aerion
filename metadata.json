@@ -1,0 +1,8 @@
+{
+  "name": "Remix Rocket Parts Explorer",
+  "description": "Educational aerospace engineering platform to discover, study, and learn about rocket components and flight hardware.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

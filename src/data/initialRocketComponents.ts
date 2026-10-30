@@ -75,6 +75,86 @@ export const CATEGORIES_INFO: CategoryInfo[] = [
   }
 ];
 
+export const DEFAULT_FALLBACK_CATEGORIES: string[] = [
+  'Airframe, structures & flight controls',
+  'Propulsion',
+  'Structures',
+  'Avionics',
+  'Guidance & Control',
+  'Electrical Systems',
+  'Thermal Protection',
+  'Recovery Systems'
+];
+
+/**
+ * Builds rich metadata for any category (standard or user-created in the database).
+ */
+export function buildDynamicCategoryInfo(
+  categoryName: string,
+  componentsInCat: RocketComponent[] = []
+): CategoryInfo {
+  // Check if we have predefined rich info in CATEGORIES_INFO
+  const existing = CATEGORIES_INFO.find(
+    (c) => c.id.toLowerCase() === categoryName.toLowerCase() ||
+           c.title.toLowerCase() === categoryName.toLowerCase()
+  );
+  if (existing) {
+    return {
+      ...existing,
+      id: categoryName,
+      commonComponents: existing.commonComponents.length > 0 
+        ? existing.commonComponents 
+        : componentsInCat.map(c => c.component_name || c.name).filter(Boolean).slice(0, 5)
+    };
+  }
+
+  // Guess iconName based on name keywords
+  const lower = categoryName.toLowerCase();
+  let iconName = 'Box';
+  if (lower.includes('propul') || lower.includes('engine') || lower.includes('thrust') || lower.includes('fuel')) {
+    iconName = 'Flame';
+  } else if (lower.includes('avion') || lower.includes('comput') || lower.includes('soft') || lower.includes('sensor')) {
+    iconName = 'Cpu';
+  } else if (lower.includes('guid') || lower.includes('nav') || lower.includes('control') || lower.includes('steer')) {
+    iconName = 'Compass';
+  } else if (lower.includes('elect') || lower.includes('power') || lower.includes('battery') || lower.includes('solar')) {
+    iconName = 'Zap';
+  } else if (lower.includes('therm') || lower.includes('shield') || lower.includes('heat') || lower.includes('protect')) {
+    iconName = 'Shield';
+  } else if (lower.includes('recov') || lower.includes('chute') || lower.includes('land') || lower.includes('drop')) {
+    iconName = 'Anchor';
+  } else if (lower.includes('struct') || lower.includes('frame') || lower.includes('fairing') || lower.includes('shell') || lower.includes('airframe')) {
+    iconName = 'Box';
+  } else {
+    iconName = 'Layers';
+  }
+
+  const sampleItems = componentsInCat.map((c) => c.component_name || c.name).filter(Boolean).slice(0, 5);
+
+  return {
+    id: categoryName,
+    title: categoryName,
+    shortDescription: `Subsystem components and assemblies under ${categoryName}.`,
+    description: `Specialized aerospace engineering domain covering flight hardware, integration interfaces, and technical criteria for ${categoryName}.`,
+    iconName,
+    accentColor: 'bg-zinc-100 text-zinc-900 border-zinc-300',
+    commonComponents: sampleItems.length > 0 ? sampleItems : ['Flight Hardware Component']
+  };
+}
+
+/**
+ * Returns dynamic CategoryInfo objects for all categories present in the database.
+ */
+export function getCategoriesWithDetails(
+  categoryNames: string[],
+  components: RocketComponent[]
+): CategoryInfo[] {
+  return categoryNames.map((catName) => {
+    const items = components.filter((c) => c.category === catName);
+    return buildDynamicCategoryInfo(catName, items);
+  });
+}
+
 export const INITIAL_COMPONENTS: RocketComponent[] = [
   {
     id: 'comp-fuselage',

@@ -1,9 +1,10 @@
 import { RocketComponent } from '../types/rocket';
-import { INITIAL_COMPONENTS } from '../data/initialRocketComponents';
+import { INITIAL_COMPONENTS, DEFAULT_FALLBACK_CATEGORIES } from '../data/initialRocketComponents';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { StorageService } from './storageService';
 
 const STORAGE_KEY = 'aerion_encyclopedia_catalog_v2';
+const CATEGORIES_KEY = 'aerion_categories_catalog_v2';
 const IDB_NAME = 'aerion_encyclopedia_db';
 const IDB_VERSION = 2;
 const IDB_STORE_ENTRIES = 'encyclopedia_entries';
@@ -58,7 +59,11 @@ function rowToComponent(row: any, index: number = 0): RocketComponent {
   const catId = row.catalog_id || `entry-${index + 1}`;
   const entryNum = row.entry_number || String(index + 1).padStart(3, '0');
   const now = new Date().toISOString();
-  const finalImg = row.image_storage_path || row.image_url || row.imageUrl || '';
+
+  // Robustly resolve displayable URL from image_url, imageUrl, or image_storage_path
+  const rawUrl = row.image_url || row.imageUrl || null;
+  const rawPath = row.image_storage_path || null;
+  const resolvedImg = StorageService.resolveImageUrl(rawUrl, rawPath);
 
   return {
     id: String(row.id || `aerion-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`),
@@ -77,12 +82,16 @@ function rowToComponent(row: any, index: number = 0): RocketComponent {
     safety_limitations: row.safety_limitations || 'Aerodynamic dynamic pressure and temperature limits.',
     technical_reference_guidance: row.technical_reference_guidance || 'AIAA, FAA, and NASA aerospace standards.',
 
-    image_storage_path: row.image_storage_path || null,
-    image_url: row.image_url || finalImg || null,
+    image_storage_path: rawPath,
+    image_url: resolvedImg || rawUrl || null,
     image_title: row.image_title || compName,
     image_caption: row.image_caption || '',
     image_alt_text: row.image_alt_text || `${compName} technical visual`,
-    image_source: row.image_source || 'Aerospace Technical Archive',
+    image_source: (() => {
+      const raw = (row.image_source || '').trim();
+      if (/wikimedia|commons/i.test(raw)) return '';
+      return raw;
+    })(),
     image_source_url: row.image_source_url || '',
     image_verification_status: row.image_verification_status || 'Verified',
     image_verified_at: row.image_verified_at || now.slice(0, 10),
@@ -104,7 +113,7 @@ function rowToComponent(row: any, index: number = 0): RocketComponent {
       'Engineered for aerospace vibration and aerodynamic loading.',
       'Meets flight hardware qualification criteria.'
     ]),
-    imageUrl: finalImg,
+    imageUrl: resolvedImg,
     videoUrl: row.video_url || row.videoUrl,
     referenceLinks: Array.isArray(row.reference_links) ? row.reference_links : row.referenceLinks,
     specifications: row.specifications && typeof row.specifications === 'object' ? row.specifications : {},
@@ -145,7 +154,11 @@ function componentToRow(item: Partial<RocketComponent>, isCreate: boolean = fals
     image_title: item.image_title || compName,
     image_caption: item.image_caption || '',
     image_alt_text: item.image_alt_text || `${compName} technical visual`,
-    image_source: item.image_source || 'Aerospace Technical Archive',
+    image_source: (() => {
+      const raw = (item.image_source || '').trim();
+      if (/wikimedia|commons/i.test(raw)) return null;
+      return raw || null;
+    })(),
     image_source_url: item.image_source_url || '',
     image_verification_status: item.image_verification_status || 'Verified',
     image_verified_at: item.image_verified_at ? item.image_verified_at.slice(0, 10) : now.slice(0, 10),
@@ -523,6 +536,118 @@ export const ComponentService = {
    * Resets local cache and re-seeds Supabase database to default hardware catalog.
    */
   async resetToDefaults(): Promise<RocketComponent[]> {
-    return this.seedSupabase();
+    const fresh = await this.seedSupabase();
+    await this.fetchCategories();
+    return fresh;
+  },
+
+  /**
+   * Synchronously returns cached categories or extracts distinct categories from local components.
+   */
+  getCachedCategories(): string[] {
+    try {
+      const stored = localStorage.getItem(CATEGORIES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Extract from loaded components
+    const list = this.getAllComponents();
+    const set = new Set<string>();
+    list.forEach((c) => {
+      if (c.category && typeof c.category === 'string') {
+        const trimmed = c.category.trim();
+        if (trimmed) set.add(trimmed);
+      }
+    });
+
+    if (set.size > 0) {
+      const arr = Array.from(set);
+      try {
+        localStorage.setItem(CATEGORIES_KEY, JSON.stringify(arr));
+      } catch {}
+      return arr;
+    }
+
+    return DEFAULT_FALLBACK_CATEGORIES;
+  },
+
+  /**
+   * Asynchronously queries the live database for real distinct categories.
+   * Checks Supabase encyclopedia_entries and any dedicated categories table,
+   * merges with local records, caches, and returns sorted categories.
+   */
+  async fetchCategories(): Promise<string[]> {
+    const supabase = getSupabase();
+    const categoriesSet = new Set<string>();
+
+    if (supabase) {
+      try {
+        // 1. Try querying dedicated 'categories' table if it exists in Supabase
+        try {
+          const { data: catTable, error: catTableErr } = await supabase
+            .from('categories')
+            .select('name, title, id');
+
+          if (!catTableErr && catTable && catTable.length > 0) {
+            catTable.forEach((r: any) => {
+              const val = r.name || r.title || r.id;
+              if (val && typeof val === 'string' && val.trim()) {
+                categoriesSet.add(val.trim());
+              }
+            });
+          }
+        } catch {
+          // dedicated categories table is optional
+        }
+
+        // 2. Fetch distinct categories from live encyclopedia_entries table
+        const { data: entryRows, error: entryErr } = await supabase
+          .from('encyclopedia_entries')
+          .select('category');
+
+        if (!entryErr && entryRows && entryRows.length > 0) {
+          entryRows.forEach((r: any) => {
+            if (r.category && typeof r.category === 'string' && r.category.trim()) {
+              categoriesSet.add(r.category.trim());
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Network exception while fetching Supabase categories:', err);
+      }
+    }
+
+    // 3. Only if database didn't return any categories (e.g. offline mode), check local components
+    if (categoriesSet.size === 0) {
+      const localComps = this.getAllComponents();
+      localComps.forEach((c) => {
+        if (c.category && typeof c.category === 'string' && c.category.trim()) {
+          categoriesSet.add(c.category.trim());
+        }
+      });
+    }
+
+    // 4. Final fallback only if database and local cache are completely empty
+    if (categoriesSet.size === 0) {
+      DEFAULT_FALLBACK_CATEGORIES.forEach((cat) => categoriesSet.add(cat));
+    }
+
+    const result = Array.from(categoriesSet);
+
+    // Cache to localStorage
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(result));
+    } catch (e) {
+      console.warn('Failed to cache categories to localStorage:', e);
+    }
+
+    return result;
   }
 };

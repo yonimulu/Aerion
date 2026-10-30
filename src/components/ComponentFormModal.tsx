@@ -7,6 +7,7 @@ interface ComponentFormModalProps {
   onClose: () => void;
   onSave: (data: Partial<RocketComponent>) => void;
   initialData?: RocketComponent | null;
+  availableCategories?: string[];
 }
 
 /**
@@ -16,7 +17,8 @@ export const ComponentFormModal: React.FC<ComponentFormModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  initialData
+  initialData,
+  availableCategories
 }) => {
   return (
     <EncyclopediaEntryFormModal
@@ -24,6 +26,7 @@ export const ComponentFormModal: React.FC<ComponentFormModalProps> = ({
       onClose={onClose}
       onSave={onSave}
       initialData={initialData}
+      availableCategories={availableCategories}
     />
   );
 };

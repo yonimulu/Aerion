@@ -1,6 +1,7 @@
 import React from 'react';
 import { RocketComponent } from '../types/rocket';
 import { Calendar, Image as ImageIcon } from 'lucide-react';
+import { StorageService } from '../services/storageService';
 
 interface EncyclopediaLivePreviewProps {
   data: Partial<RocketComponent>;
@@ -15,7 +16,9 @@ export const EncyclopediaLivePreview: React.FC<EncyclopediaLivePreviewProps> = (
   const category = data.category || 'Airframe, structures & flight controls';
   const status = data.status || 'draft';
 
-  const previewImage = activeImageSource || data.image_storage_path || data.image_url || data.imageUrl;
+  const previewImage = activeImageSource
+    ? StorageService.resolveImageUrl(activeImageSource)
+    : StorageService.resolveComponentImageUrl(data);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 sm:p-8 space-y-6 text-zinc-950 dark:text-zinc-100 font-sans shadow-xs transition-colors">
@@ -73,10 +76,10 @@ export const EncyclopediaLivePreview: React.FC<EncyclopediaLivePreviewProps> = (
               }}
             />
           </div>
-          {(data.image_caption || data.image_title || data.image_source) && (
+          {(data.image_caption || data.image_title || (data.image_source && !/wikimedia|commons/i.test(data.image_source))) && (
             <div className="text-xs text-zinc-600 dark:text-zinc-400 flex flex-wrap items-center justify-between gap-1 pt-1 font-mono">
               <span>{data.image_caption || data.image_title}</span>
-              {data.image_source && (
+              {data.image_source && !/wikimedia|commons/i.test(data.image_source) && (
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Source: {data.image_source}
                 </span>

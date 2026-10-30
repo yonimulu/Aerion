@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Rocket, Search, ArrowRight, Layers, Flame, Cpu, Shield, Compass, Zap, Anchor, Box, ChevronRight, Sparkles, X, CornerDownLeft } from 'lucide-react';
+import { Rocket, Search, ArrowRight, Layers, Flame, Cpu, Shield, Compass, Zap, Anchor, Box, ChevronRight, Sparkles, X, CornerDownLeft, History } from 'lucide-react';
 import { RocketComponent, RocketCategory } from '../types/rocket';
-import { CATEGORIES_INFO } from '../data/initialRocketComponents';
+import { CATEGORIES_INFO, getCategoriesWithDetails } from '../data/initialRocketComponents';
 import { ComponentCard } from '../components/ComponentCard';
+import { StorageService } from '../services/storageService';
+import { RecentSearchService } from '../services/recentSearchService';
 
 interface HomePageProps {
   components: RocketComponent[];
+  categories?: string[];
   onSelectComponent: (id: string) => void;
   onNavigate: (tab: string, categoryFilter?: string) => void;
   onSearch: (query: string) => void;
@@ -13,6 +16,7 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({
   components,
+  categories,
   onSelectComponent,
   onNavigate,
   onSearch
@@ -21,6 +25,13 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [featuredCategoryFilter, setFeaturedCategoryFilter] = useState('All');
+  
+  // Recently searched queries persisted in localStorage
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => RecentSearchService.getRecentSearches());
+
+  useEffect(() => {
+    setRecentSearches(RecentSearchService.getRecentSearches());
+  }, []);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,11 +66,18 @@ export const HomePage: React.FC<HomePageProps> = ({
     e.preventDefault();
     setIsDropdownOpen(false);
     if (selectedIndex >= 0 && displayedResults[selectedIndex]) {
-      onSelectComponent(displayedResults[selectedIndex].id);
+      const selectedItem = displayedResults[selectedIndex];
+      const itemName = selectedItem.component_name || selectedItem.name;
+      const updated = RecentSearchService.addRecentSearch(itemName);
+      setRecentSearches(updated);
+      onSelectComponent(selectedItem.id);
       return;
     }
     if (searchQuery.trim()) {
-      onSearch(searchQuery.trim());
+      const term = searchQuery.trim();
+      const updated = RecentSearchService.addRecentSearch(term);
+      setRecentSearches(updated);
+      onSearch(term);
     } else {
       onNavigate('explore');
     }
@@ -83,7 +101,11 @@ export const HomePage: React.FC<HomePageProps> = ({
       if (selectedIndex >= 0 && displayedResults[selectedIndex]) {
         e.preventDefault();
         setIsDropdownOpen(false);
-        onSelectComponent(displayedResults[selectedIndex].id);
+        const selectedItem = displayedResults[selectedIndex];
+        const itemName = selectedItem.component_name || selectedItem.name;
+        const updated = RecentSearchService.addRecentSearch(itemName);
+        setRecentSearches(updated);
+        onSelectComponent(selectedItem.id);
       }
     } else if (e.key === 'Escape') {
       setIsDropdownOpen(false);
@@ -92,6 +114,12 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   const handleSelectItem = (id: string) => {
     setIsDropdownOpen(false);
+    const item = components.find((c) => c.id === id);
+    if (item) {
+      const itemName = item.component_name || item.name;
+      const updated = RecentSearchService.addRecentSearch(itemName);
+      setRecentSearches(updated);
+    }
     onSelectComponent(id);
   };
 
@@ -102,9 +130,42 @@ export const HomePage: React.FC<HomePageProps> = ({
     ? baseFeatured
     : baseFeatured.filter((c) => c.category === featuredCategoryFilter);
 
-  const getCategoryCount = (catId: RocketCategory) => {
-    return components.filter((c) => c.category === catId).length;
+  const getCategoryCount = (catId: RocketCategory | string) => {
+    return components.filter((c) => (c.category || '').trim().toLowerCase() === (catId || '').trim().toLowerCase()).length;
   };
+
+  // Strictly derive categories that exist on components in the database
+  const dynamicCategories = useMemo(() => {
+    const categoriesInDb = new Set<string>();
+
+    // 1. Gather all categories actually present on components in the database
+    components.forEach((c) => {
+      const cat = c.category?.trim();
+      if (cat) {
+        categoriesInDb.add(cat);
+      }
+    });
+
+    // 2. If categories prop has values, only keep ones with items in the database
+    if (categories && categories.length > 0) {
+      categories.forEach((cat) => {
+        const trimmed = cat?.trim();
+        if (trimmed && components.some((c) => (c.category || '').trim().toLowerCase() === trimmed.toLowerCase())) {
+          categoriesInDb.add(trimmed);
+        }
+      });
+    }
+
+    if (categoriesInDb.size === 0) {
+      return [];
+    }
+
+    // Convert to rich metadata cards
+    const details = getCategoriesWithDetails(Array.from(categoriesInDb), components);
+
+    // Filter strictly to categories that exist with at least 1 component in the database
+    return details.filter((cat) => getCategoryCount(cat.id) > 0);
+  }, [categories, components]);
 
   const getCategoryIcon = (iconName: string) => {
     switch (iconName) {
@@ -205,7 +266,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <>
                     <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
                       {displayedResults.map((item, idx) => {
-                        const itemImg = item.image_storage_path || item.image_url || item.imageUrl;
+                        const itemImg = StorageService.resolveComponentImageUrl(item);
                         const isSelected = selectedIndex === idx;
                         return (
                           <div
@@ -222,6 +283,16 @@ export const HomePage: React.FC<HomePageProps> = ({
                                   src={itemImg}
                                   alt=""
                                   className="w-10 h-10 rounded-lg object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0"
+                                  onError={async (e) => {
+                                    if (item.image_storage_path && !item.image_storage_path.startsWith('data:')) {
+                                      const signed = await StorageService.getSignedUrl(item.image_storage_path);
+                                      if (signed) {
+                                        (e.currentTarget as HTMLImageElement).src = signed;
+                                        return;
+                                      }
+                                    }
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                  }}
                                 />
                               ) : (
                                 <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 shrink-0">
@@ -252,7 +323,14 @@ export const HomePage: React.FC<HomePageProps> = ({
                     <div
                       onClick={() => {
                         setIsDropdownOpen(false);
-                        onSearch(searchQuery.trim());
+                        const term = searchQuery.trim();
+                        if (term) {
+                          const updated = RecentSearchService.addRecentSearch(term);
+                          setRecentSearches(updated);
+                          onSearch(term);
+                        } else {
+                          onNavigate('explore');
+                        }
                       }}
                       className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-800 cursor-pointer flex items-center justify-between text-xs font-mono font-semibold text-black dark:text-white transition-colors"
                     >
@@ -275,7 +353,14 @@ export const HomePage: React.FC<HomePageProps> = ({
                       type="button"
                       onClick={() => {
                         setIsDropdownOpen(false);
-                        onSearch(searchQuery.trim());
+                        const term = searchQuery.trim();
+                        if (term) {
+                          const updated = RecentSearchService.addRecentSearch(term);
+                          setRecentSearches(updated);
+                          onSearch(term);
+                        } else {
+                          onNavigate('explore');
+                        }
                       }}
                       className="text-xs font-mono font-semibold text-black dark:text-white hover:underline inline-flex items-center space-x-1"
                     >
@@ -287,22 +372,62 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
             )}
 
-            {/* Quick search tags */}
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
-              <span className="text-zinc-500 dark:text-zinc-400">Popular:</span>
-              {['RS-25 Engine', 'Grid Fins', 'Flight Computer', 'Turbopump', 'Thermal Tiles'].map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery(tag);
-                    setIsDropdownOpen(true);
-                  }}
-                  className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 transition-colors"
-                >
-                  {tag}
-                </button>
-              ))}
+            {/* Recently Searched Quick-Access */}
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-[11px] font-mono">
+              <div className="flex items-center space-x-1.5 text-zinc-500 dark:text-zinc-400 mr-1 select-none">
+                <History className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span className="uppercase tracking-wider font-semibold text-[10px]">Recently Searched:</span>
+              </div>
+              {recentSearches.length > 0 ? (
+                <>
+                  {recentSearches.map((term) => (
+                    <div
+                      key={term}
+                      className="group inline-flex items-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all shadow-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = RecentSearchService.addRecentSearch(term);
+                          setRecentSearches(updated);
+                          onSearch(term);
+                        }}
+                        title={`Search for "${term}"`}
+                        className="px-2.5 py-1 text-left flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 group-hover:bg-black dark:group-hover:bg-white transition-colors" />
+                        <span className="font-medium truncate max-w-[150px] sm:max-w-none">{term}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updated = RecentSearchService.removeRecentSearch(term);
+                          setRecentSearches(updated);
+                        }}
+                        title={`Remove "${term}" from history`}
+                        aria-label={`Remove ${term}`}
+                        className="pr-1.5 pl-0.5 py-1 text-zinc-400 hover:text-black dark:text-zinc-500 dark:hover:text-white opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = RecentSearchService.clearRecentSearches();
+                      setRecentSearches(updated);
+                    }}
+                    title="Clear recent searches"
+                    className="text-[10px] font-semibold text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 hover:underline px-1.5 py-1 cursor-pointer transition-colors"
+                  >
+                    Clear
+                  </button>
+                </>
+              ) : (
+                <span className="text-zinc-400 dark:text-zinc-500 text-[11px] italic">No recent searches</span>
+              )}
             </div>
           </div>
 
@@ -326,57 +451,59 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* Category Shortcuts Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
-          <div>
-            <div className="text-zinc-500 dark:text-zinc-400 font-mono text-xs uppercase tracking-wider font-semibold">Subsystem Breakdown</div>
-            <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">Core Aerospace Categories</h2>
+      {/* Category Shortcuts Section - only displayed if categories exist in the database */}
+      {dynamicCategories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+            <div>
+              <div className="text-zinc-500 dark:text-zinc-400 font-mono text-xs uppercase tracking-wider font-semibold">Subsystem Breakdown</div>
+              <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">Core Aerospace Categories</h2>
+            </div>
+            <button
+              onClick={() => onNavigate('categories')}
+              className="text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white flex items-center space-x-1"
+            >
+              <span>View Subsystem Guides</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => onNavigate('categories')}
-            className="text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white flex items-center space-x-1"
-          >
-            <span>View Subsystem Guides</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {CATEGORIES_INFO.slice(0, 8).map((cat) => {
-            const Icon = getCategoryIcon(cat.iconName);
-            const count = getCategoryCount(cat.id);
-            return (
-              <div
-                key={cat.id}
-                onClick={() => onNavigate('explore', cat.id)}
-                className="group p-5 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-3 shadow-xs"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="p-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white">
-                    <Icon className="w-5 h-5" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {dynamicCategories.map((cat) => {
+              const Icon = getCategoryIcon(cat.iconName);
+              const count = getCategoryCount(cat.id);
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => onNavigate('explore', cat.id)}
+                  className="group p-5 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-black dark:hover:border-zinc-600 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-3 shadow-xs"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                      {count} {count === 1 ? 'part' : 'parts'}
+                    </span>
                   </div>
-                  <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
-                    {count} {count === 1 ? 'part' : 'parts'}
-                  </span>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-zinc-950 dark:text-white group-hover:text-black dark:group-hover:text-zinc-200 transition-colors">
+                      {cat.title}
+                    </h3>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                      {cat.shortDescription}
+                    </p>
+                  </div>
+                  <div className="pt-2 text-[11px] font-mono text-black dark:text-zinc-200 font-semibold group-hover:translate-x-1 transition-transform flex items-center space-x-1">
+                    <span>Explore items</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-zinc-950 dark:text-white group-hover:text-black dark:group-hover:text-zinc-200 transition-colors">
-                    {cat.title}
-                  </h3>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                    {cat.shortDescription}
-                  </p>
-                </div>
-                <div className="pt-2 text-[11px] font-mono text-black dark:text-zinc-200 font-semibold group-hover:translate-x-1 transition-transform flex items-center space-x-1">
-                  <span>Explore items</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Featured Hardware Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">

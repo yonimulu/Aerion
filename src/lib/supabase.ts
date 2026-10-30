@@ -9,12 +9,34 @@ const STORAGE_KEY_KEY = 'aerion_supabase_anon_key';
  * 2. User-provided in-app configuration (stored securely in browser localStorage)
  */
 export function getActiveSupabaseCredentials(): { url: string; anonKey: string; source: 'env' | 'storage' | 'none' } {
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  // Check both un-prefixed SUPABASE_URL and VITE_SUPABASE_URL (plus process.env fallback)
+  const envUrl = (
+    (typeof import.meta !== 'undefined' && (import.meta.env?.SUPABASE_URL || import.meta.env?.VITE_SUPABASE_URL)) ||
+    (typeof process !== 'undefined' && (process.env?.SUPABASE_URL || process.env?.VITE_SUPABASE_URL)) ||
+    ''
+  ).trim();
+
+  // Check un-prefixed SUPABASE_ANON_KEY/SUPABASE_KEY and VITE_SUPABASE_ANON_KEY/VITE_SUPABASE_KEY
+  const envKey = (
+    (typeof import.meta !== 'undefined' && (
+      import.meta.env?.SUPABASE_ANON_KEY ||
+      import.meta.env?.SUPABASE_KEY ||
+      import.meta.env?.VITE_SUPABASE_ANON_KEY ||
+      import.meta.env?.VITE_SUPABASE_KEY
+    )) ||
+    (typeof process !== 'undefined' && (
+      process.env?.SUPABASE_ANON_KEY ||
+      process.env?.SUPABASE_KEY ||
+      process.env?.VITE_SUPABASE_ANON_KEY ||
+      process.env?.VITE_SUPABASE_KEY
+    )) ||
+    ''
+  ).trim();
 
   if (envUrl && envKey && !envUrl.includes('your-project.supabase.co')) {
     return { url: envUrl, anonKey: envKey, source: 'env' };
   }
+
 
   if (typeof window !== 'undefined') {
     const storedUrl = (localStorage.getItem(STORAGE_URL_KEY) || '').trim();

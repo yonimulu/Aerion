@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, ExternalLink, Play, CheckCircle2, ShieldCheck, Layers, 
   Info, Video, BookOpen, Share2, Check, FileText, 
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { RocketComponent } from '../types/rocket';
 import { getCategoryBadgeStyle } from '../components/ComponentCard';
+import { StorageService } from '../services/storageService';
 
 interface ComponentDetailsPageProps {
   component: RocketComponent;
@@ -22,8 +23,28 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [triedSigned, setTriedSigned] = useState(false);
+  const [displayImage, setDisplayImage] = useState<string>(() => StorageService.resolveComponentImageUrl(component));
   const badge = getCategoryBadgeStyle(component.category);
   const CategoryIcon = badge.icon;
+
+  useEffect(() => {
+    setDisplayImage(StorageService.resolveComponentImageUrl(component));
+    setImageError(false);
+    setTriedSigned(false);
+  }, [component.id, component.image_url, component.image_storage_path, component.imageUrl]);
+
+  const handleImageError = async () => {
+    if (!triedSigned && component.image_storage_path && !component.image_storage_path.startsWith('data:')) {
+      setTriedSigned(true);
+      const signed = await StorageService.getSignedUrl(component.image_storage_path);
+      if (signed) {
+        setDisplayImage(signed);
+        return;
+      }
+    }
+    setImageError(true);
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -44,7 +65,6 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
     .filter((c) => c.category === component.category && c.id !== component.id)
     .slice(0, 3);
 
-  const displayImage = component.image_storage_path || component.image_url || component.imageUrl;
   const compName = component.component_name || component.name;
 
   return (
@@ -104,7 +124,7 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
               <img
                 src={displayImage}
                 alt={component.image_alt_text || compName}
-                onError={() => setImageError(true)}
+                onError={handleImageError}
                 className="w-full h-full object-cover max-h-[520px]"
               />
             ) : (
@@ -127,7 +147,7 @@ export const ComponentDetailsPage: React.FC<ComponentDetailsPageProps> = ({
                 </span>
               )}
             </div>
-            {component.image_source && (
+            {component.image_source && !/wikimedia|commons/i.test(component.image_source) && (
               <span>Source: <span className="text-zinc-950 dark:text-white font-semibold">{component.image_source}</span></span>
             )}
           </div>

@@ -1,23 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RocketComponent } from '../types/rocket';
 import { ArrowUpRight, Cpu, Flame, Box, Compass, Zap, Shield, Anchor, Layers } from 'lucide-react';
+import { StorageService } from '../services/storageService';
 
 interface ComponentCardProps {
   component: RocketComponent;
   onSelect: (id: string) => void;
 }
 
-export const getCategoryBadgeStyle = (category: string) => {
+export const getCategoryBadgeStyle = (category: string = '') => {
+  const lower = (category || '').toLowerCase();
   let Icon = Layers;
-  switch (category) {
-    case 'Propulsion': Icon = Flame; break;
-    case 'Structures': Icon = Box; break;
-    case 'Avionics': Icon = Cpu; break;
-    case 'Guidance & Control': Icon = Compass; break;
-    case 'Electrical Systems': Icon = Zap; break;
-    case 'Thermal Protection': Icon = Shield; break;
-    case 'Recovery Systems': Icon = Anchor; break;
-    default: Icon = Layers; break;
+
+  if (lower.includes('propul') || lower.includes('engine') || lower.includes('thrust') || lower.includes('flame')) {
+    Icon = Flame;
+  } else if (lower.includes('avion') || lower.includes('comput') || lower.includes('cpu') || lower.includes('soft') || lower.includes('sensor')) {
+    Icon = Cpu;
+  } else if (lower.includes('guid') || lower.includes('nav') || lower.includes('compass') || lower.includes('control') || lower.includes('steer')) {
+    Icon = Compass;
+  } else if (lower.includes('elect') || lower.includes('power') || lower.includes('battery') || lower.includes('zap') || lower.includes('solar')) {
+    Icon = Zap;
+  } else if (lower.includes('therm') || lower.includes('shield') || lower.includes('heat') || lower.includes('protect')) {
+    Icon = Shield;
+  } else if (lower.includes('recov') || lower.includes('anchor') || lower.includes('chute') || lower.includes('land') || lower.includes('drop')) {
+    Icon = Anchor;
+  } else if (lower.includes('struct') || lower.includes('airframe') || lower.includes('box') || lower.includes('fairing') || lower.includes('shell') || lower.includes('body')) {
+    Icon = Box;
+  } else {
+    Icon = Layers;
   }
 
   return {
@@ -28,9 +38,31 @@ export const getCategoryBadgeStyle = (category: string) => {
 };
 
 export const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelect }) => {
-  const [imageError, setImageError] = useState(false);
   const badge = getCategoryBadgeStyle(component.category);
   const CategoryIcon = badge.icon;
+
+  const [currentImg, setCurrentImg] = useState<string>(() => StorageService.resolveComponentImageUrl(component));
+  const [imageError, setImageError] = useState(false);
+  const [triedSigned, setTriedSigned] = useState(false);
+
+  useEffect(() => {
+    setCurrentImg(StorageService.resolveComponentImageUrl(component));
+    setImageError(false);
+    setTriedSigned(false);
+  }, [component.id, component.image_url, component.image_storage_path, component.imageUrl]);
+
+  const handleImageError = async () => {
+    // If the public URL fails and we have a storage path in Supabase, attempt signed URL
+    if (!triedSigned && component.image_storage_path && !component.image_storage_path.startsWith('data:')) {
+      setTriedSigned(true);
+      const signed = await StorageService.getSignedUrl(component.image_storage_path);
+      if (signed) {
+        setCurrentImg(signed);
+        return;
+      }
+    }
+    setImageError(true);
+  };
 
   return (
     <div
@@ -39,11 +71,11 @@ export const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelec
     >
       {/* Image Container */}
       <div className="relative w-full h-48 bg-zinc-100 dark:bg-zinc-950 overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
-        {!imageError && (component.image_storage_path || component.image_url || component.imageUrl) ? (
+        {!imageError && currentImg ? (
           <img
-            src={component.image_storage_path || component.image_url || component.imageUrl}
+            src={currentImg}
             alt={component.component_name || component.name}
-            onError={() => setImageError(true)}
+            onError={handleImageError}
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />

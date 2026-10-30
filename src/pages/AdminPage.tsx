@@ -7,9 +7,11 @@ import { RocketComponent, EntryStatus } from '../types/rocket';
 import { getCategoryBadgeStyle } from '../components/ComponentCard';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { EncyclopediaEntryFormModal } from '../components/EncyclopediaEntryFormModal';
+import { StorageService } from '../services/storageService';
 
 interface AdminPageProps {
   components: RocketComponent[];
+  categories?: string[];
   onViewComponent: (id: string) => void;
   onAddComponent: (item: Partial<RocketComponent>) => void | Promise<void>;
   onEditComponent: (id: string, updates: Partial<RocketComponent>) => void | Promise<void>;
@@ -20,6 +22,7 @@ interface AdminPageProps {
 
 export const AdminPage: React.FC<AdminPageProps> = ({
   components,
+  categories: categoriesProp,
   onViewComponent,
   onAddComponent,
   onEditComponent,
@@ -104,17 +107,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     return matchesCategory && matchesStatus && matchesSearch;
   });
 
-  const categories = [
-    'All',
-    'Airframe, structures & flight controls',
-    'Propulsion',
-    'Structures',
-    'Avionics',
-    'Guidance & Control',
-    'Electrical Systems',
-    'Thermal Protection',
-    'Recovery Systems'
-  ];
+  const categories = React.useMemo(() => {
+    const catSet = new Set<string>();
+    catSet.add('All');
+
+    if (categoriesProp && categoriesProp.length > 0) {
+      categoriesProp.forEach((c) => catSet.add(c));
+    }
+
+    components.forEach((c) => {
+      if (c.category) catSet.add(c.category);
+    });
+
+    return Array.from(catSet);
+  }, [categoriesProp, components]);
 
   const publishedCount = components.filter((c) => (c.status || 'published') === 'published').length;
   const draftCount = components.filter((c) => c.status === 'draft').length;
@@ -261,7 +267,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 filteredComponents.map((item) => {
                   const badge = getCategoryBadgeStyle(item.category);
                   const CategoryIcon = badge.icon;
-                  const itemImg = item.image_storage_path || item.image_url || item.imageUrl;
+                  const itemImg = StorageService.resolveComponentImageUrl(item);
                   const isPublished = (item.status || 'published') === 'published';
 
                   return (
@@ -274,7 +280,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                               src={itemImg}
                               alt=""
                               className="w-10 h-10 rounded-lg object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0"
-                              onError={(e) => {
+                              onError={async (e) => {
+                                if (item.image_storage_path && !item.image_storage_path.startsWith('data:')) {
+                                  const signed = await StorageService.getSignedUrl(item.image_storage_path);
+                                  if (signed) {
+                                    (e.currentTarget as HTMLImageElement).src = signed;
+                                    return;
+                                  }
+                                }
                                 (e.currentTarget as HTMLElement).style.display = 'none';
                               }}
                             />
@@ -443,6 +456,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           if (target) setDeletingItem(target);
         }}
         initialData={editingItem}
+        availableCategories={categories.filter((c) => c !== 'All')}
       />
 
       {/* Delete Confirmation Modal */}

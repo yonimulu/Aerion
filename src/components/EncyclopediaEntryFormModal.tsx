@@ -14,6 +14,7 @@ interface EncyclopediaEntryFormModalProps {
   onSave: (entry: Partial<RocketComponent>) => void | Promise<void>;
   onDelete?: (id: string) => void | Promise<void>;
   initialData?: RocketComponent | null;
+  availableCategories?: string[];
 }
 
 const DEFAULT_CATEGORIES: string[] = [
@@ -32,10 +33,25 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
   onClose,
   onSave,
   onDelete,
-  initialData
+  initialData,
+  availableCategories
 }) => {
   const isEditing = !!initialData;
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Compute all available categories from database / parent
+  const categoryOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    if (availableCategories && availableCategories.length > 0) {
+      availableCategories.forEach((c) => set.add(c));
+    } else {
+      DEFAULT_CATEGORIES.forEach((c) => set.add(c));
+    }
+    if (initialData?.category) {
+      set.add(initialData.category);
+    }
+    return Array.from(set);
+  }, [availableCategories, initialData?.category]);
 
   // Active view on mobile (Form vs Live Preview)
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
@@ -120,9 +136,10 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
       setTechnicalReferenceGuidance(initialData.technical_reference_guidance || '');
 
       // Image selection
-      if (initialData.image_storage_path) {
+      if (initialData.image_storage_path || (initialData.image_url && !initialData.image_url.startsWith('http'))) {
         setImageSourceMode('upload');
-        setUploadedImageData(initialData.image_storage_path);
+        const resolved = StorageService.resolveComponentImageUrl(initialData);
+        setUploadedImageData(resolved || initialData.image_storage_path || null);
         setImageUrl('');
       } else if (initialData.image_url || initialData.imageUrl) {
         setImageSourceMode('url');
@@ -137,7 +154,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
       setImageTitle(initialData.image_title || '');
       setImageCaption(initialData.image_caption || '');
       setImageAltText(initialData.image_alt_text || '');
-      setImageSource(initialData.image_source || '');
+      const rawSource = (initialData.image_source || '').trim();
+      setImageSource(/wikimedia|commons/i.test(rawSource) ? '' : rawSource);
       setImageSourceUrl(initialData.image_source_url || '');
       setImageVerificationStatus(initialData.image_verification_status || 'Verified');
       setImageVerifiedAt(initialData.image_verified_at || new Date().toISOString().slice(0, 10));
@@ -172,7 +190,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
       setImageTitle('');
       setImageCaption('');
       setImageAltText('');
-      setImageSource('Aerospace Technical Archive');
+      setImageSource('');
       setImageSourceUrl('');
       setImageVerificationStatus('Verified');
       setImageVerifiedAt(new Date().toISOString().slice(0, 10));
@@ -336,7 +354,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
           const uploadRes = await StorageService.uploadComponentImage(selectedImageFile, catalogId || entryNumber);
           if (uploadRes.success) {
             finalStoredPath = uploadRes.storagePath || null;
-            finalImageUrl = uploadRes.publicUrl || uploadedImageData;
+            finalImageUrl = uploadRes.publicUrl || uploadRes.signedUrl || uploadedImageData;
           } else {
             finalStoredPath = uploadedImageData;
             finalImageUrl = uploadedImageData;
@@ -348,8 +366,9 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
           setIsUploadingImage(false);
         }
       } else {
-        finalStoredPath = uploadedImageData;
-        finalImageUrl = uploadedImageData;
+        // Keeping existing uploaded file without re-uploading
+        finalStoredPath = initialData?.image_storage_path || null;
+        finalImageUrl = StorageService.resolveImageUrl(initialData?.image_url || uploadedImageData, finalStoredPath);
       }
     }
 
@@ -374,7 +393,11 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
       image_title: imageTitle.trim() || undefined,
       image_caption: imageCaption.trim() || undefined,
       image_alt_text: imageAltText.trim() || undefined,
-      image_source: imageSource.trim() || undefined,
+      image_source: (() => {
+        const trimmed = imageSource.trim();
+        if (/wikimedia|commons/i.test(trimmed)) return undefined;
+        return trimmed || undefined;
+      })(),
       image_source_url: imageSourceUrl.trim() || undefined,
       image_verification_status: imageVerificationStatus,
       image_verified_at: imageVerifiedAt || undefined,
@@ -460,7 +483,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
             <button
               onClick={handleAttemptClose}
-              className="text-zinc-500 hover:text-black p-2 rounded-lg hover:bg-zinc-200 transition-colors"
+              className="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white p-2 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
               title="Close form"
             >
               <X className="w-5 h-5" />
@@ -470,8 +493,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
         {/* Global Error Notice if any */}
         {Object.keys(errors).length > 0 && (
-          <div className="mx-6 mt-4 p-3 bg-zinc-100 border border-black rounded-lg text-xs font-mono text-black flex items-center space-x-2 shrink-0">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mx-6 mt-4 p-3 bg-zinc-100 dark:bg-zinc-950 border border-black dark:border-zinc-700 rounded-lg text-xs font-mono text-black dark:text-white flex items-center space-x-2 shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
             <span>Please review highlighted fields before proceeding: {Object.values(errors)[0]}</span>
           </div>
         )}
@@ -484,32 +507,34 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
             {/* TOP POSITION: Homepage Presentation Featured Highlights Toggle */}
             <div className={`p-4 rounded-xl border-2 transition-all ${
               featured 
-                ? 'bg-zinc-950 text-white border-black shadow-md' 
-                : 'bg-zinc-50 text-black border-zinc-300 hover:border-zinc-400'
+                ? 'bg-zinc-950 dark:bg-black text-white border-black dark:border-zinc-600 shadow-md' 
+                : 'bg-zinc-50 dark:bg-zinc-950 text-black dark:text-white border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700'
             }`}>
               <label htmlFor="top-featured-checkbox" className="flex items-center justify-between cursor-pointer gap-4">
                 <div className="flex items-center space-x-3.5 min-w-0">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
-                    featured ? 'bg-white text-black border-white' : 'bg-white text-zinc-400 border-zinc-200'
+                    featured 
+                      ? 'bg-white dark:bg-zinc-900 text-black dark:text-white border-white dark:border-zinc-700' 
+                      : 'bg-white dark:bg-zinc-900 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-800'
                   }`}>
                     <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2 flex-wrap">
-                      <span className="font-mono text-sm font-bold uppercase tracking-tight">
+                      <span className={`font-mono text-sm font-bold uppercase tracking-tight ${featured ? 'text-white' : 'text-black dark:text-white'}`}>
                         Feature on Homepage Highlights
                       </span>
                       {featured ? (
-                        <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-white text-black rounded">
+                        <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-white dark:bg-zinc-800 text-black dark:text-white rounded border border-transparent dark:border-zinc-700">
                           ★ Featured Active
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-200/80 rounded">
+                        <span className="px-2 py-0.5 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-200/80 dark:bg-zinc-800 rounded border border-transparent dark:border-zinc-700">
                           Standard Catalog
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs mt-0.5 ${featured ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                    <p className={`text-xs mt-0.5 ${featured ? 'text-zinc-300 dark:text-zinc-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
                       Showcase this flight hardware component in the curated highlights on the AERION homepage.
                     </p>
                   </div>
@@ -524,9 +549,9 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setFeatured(e.target.checked);
                       setIsDirty(true);
                     }}
-                    className="h-5 w-5 rounded border-2 border-zinc-400 text-black focus:ring-black accent-black cursor-pointer"
+                    className="h-5 w-5 rounded border-2 border-zinc-400 dark:border-zinc-600 text-black dark:text-white focus:ring-black dark:focus:ring-white accent-black dark:accent-white cursor-pointer"
                   />
-                  <span className="font-mono text-xs font-bold uppercase hidden sm:inline">
+                  <span className={`font-mono text-xs font-bold uppercase hidden sm:inline ${featured ? 'text-white' : 'text-black dark:text-white'}`}>
                     {featured ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
@@ -535,12 +560,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
             {/* Section 1: Basic Information */}
             <section className="space-y-4">
-              <div className="border-b border-zinc-200 pb-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-black" />
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-black dark:text-white" />
                   <span>01 / Basic Information & Catalog Identification</span>
                 </h3>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Universal taxonomic identifiers and sequential catalog registers.
                 </p>
               </div>
@@ -548,8 +573,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Entry Number */}
                 <div className="space-y-1">
-                  <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                    Entry Number <span className="text-zinc-400 font-normal">(Auto-generated)</span>
+                  <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                    Entry Number <span className="text-zinc-400 dark:text-zinc-500 font-normal">(Auto-generated)</span>
                   </label>
                   <input
                     type="text"
@@ -559,14 +584,14 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setIsDirty(true);
                     }}
                     placeholder="001"
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white"
                   />
                 </div>
 
                 {/* Component Name */}
                 <div className="sm:col-span-2 space-y-1">
-                  <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                    Component Name <span className="text-red-600">*</span>
+                  <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                    Component Name <span className="text-red-600 dark:text-red-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -574,12 +599,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     value={componentName}
                     onChange={(e) => handleComponentNameChange(e.target.value)}
                     placeholder="e.g. Fuselage or Wing"
-                    className={`w-full px-3 py-2 bg-white border rounded-lg text-black text-xs font-medium focus:outline-none focus:border-black ${
-                      errors.component_name ? 'border-red-600' : 'border-zinc-300'
+                    className={`w-full px-3 py-2 bg-white dark:bg-zinc-950 border rounded-lg text-black dark:text-white text-xs font-medium focus:outline-none focus:border-black dark:focus:border-white ${
+                      errors.component_name ? 'border-red-600 dark:border-red-500' : 'border-zinc-300 dark:border-zinc-700'
                     }`}
                   />
                   {errors.component_name && (
-                    <span className="text-[10px] text-red-600 font-mono block">{errors.component_name}</span>
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-mono block">{errors.component_name}</span>
                   )}
                 </div>
               </div>
@@ -587,8 +612,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Category Selection */}
                 <div className="space-y-1">
-                  <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                    Category <span className="text-red-600">*</span>
+                  <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                    Category <span className="text-red-600 dark:text-red-400">*</span>
                   </label>
                   {!isCustomCat ? (
                     <select
@@ -601,14 +626,14 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         }
                         setIsDirty(true);
                       }}
-                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black"
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white"
                     >
-                      {DEFAULT_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
+                      {categoryOptions.map((cat) => (
+                        <option key={cat} value={cat} className="bg-white dark:bg-zinc-900 text-black dark:text-white">
                           {cat}
                         </option>
                       ))}
-                      <option value="Other">+ Enter Custom Category...</option>
+                      <option value="Other" className="bg-white dark:bg-zinc-900 text-black dark:text-white">+ Enter Custom Category...</option>
                     </select>
                   ) : (
                     <div className="flex items-center space-x-1.5">
@@ -620,12 +645,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                           setIsDirty(true);
                         }}
                         placeholder="e.g. Aerothermodynamics & Hypersonics"
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black"
+                        className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white"
                       />
                       <button
                         type="button"
                         onClick={() => setIsCustomCat(false)}
-                        className="p-2 text-xs font-mono text-zinc-500 hover:text-black border border-zinc-300 rounded-lg"
+                        className="p-2 text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
                         title="Back to list"
                       >
                         Reset
@@ -633,17 +658,17 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     </div>
                   )}
                   {errors.category && (
-                    <span className="text-[10px] text-red-600 font-mono block">{errors.category}</span>
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-mono block">{errors.category}</span>
                   )}
                 </div>
 
                 {/* Catalog ID */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                      Catalog ID <span className="text-red-600">*</span>
+                    <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                      Catalog ID <span className="text-red-600 dark:text-red-400">*</span>
                     </label>
-                    <span className="text-[10px] font-mono text-zinc-400">Unique lowercase ID</span>
+                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">Unique lowercase ID</span>
                   </div>
                   <input
                     type="text"
@@ -651,12 +676,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     value={catalogId}
                     onChange={(e) => handleCatalogIdChange(e.target.value)}
                     placeholder="e.g. fuselage"
-                    className={`w-full px-3 py-2 bg-white border rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black ${
-                      errors.catalog_id ? 'border-red-600' : 'border-zinc-300'
+                    className={`w-full px-3 py-2 bg-white dark:bg-zinc-950 border rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white ${
+                      errors.catalog_id ? 'border-red-600 dark:border-red-500' : 'border-zinc-300 dark:border-zinc-700'
                     }`}
                   />
                   {errors.catalog_id && (
-                    <span className="text-[10px] text-red-600 font-mono block">{errors.catalog_id}</span>
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-mono block">{errors.catalog_id}</span>
                   )}
                 </div>
               </div>
@@ -664,17 +689,17 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
             {/* Section 2: Technical Definitions & Engineering Principles */}
             <section className="space-y-4">
-              <div className="border-b border-zinc-200 pb-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                  <Layers className="w-4 h-4 text-black" />
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                  <Layers className="w-4 h-4 text-black dark:text-white" />
                   <span>02 / Definition, Purpose & Operating Principles</span>
                 </h3>
               </div>
 
               {/* Definition and description */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                  Definition and description <span className="text-red-600">*</span>
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                  Definition and description <span className="text-red-600 dark:text-red-400">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -684,16 +709,16 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Primary body shell that carries crew, passengers, payload, and systems..."
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black ${
-                    errors.definition_description ? 'border-red-600' : 'border-zinc-300'
+                  className={`w-full px-3 py-2 bg-white dark:bg-zinc-950 border rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500 ${
+                    errors.definition_description ? 'border-red-600 dark:border-red-500' : 'border-zinc-300 dark:border-zinc-700'
                   }`}
                 />
               </div>
 
               {/* Purpose and engineering value */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                  Purpose and engineering value <span className="text-red-600">*</span>
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                  Purpose and engineering value <span className="text-red-600 dark:text-red-400">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -703,16 +728,16 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Provides the main load path and encloses equipment..."
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black ${
-                    errors.purpose_engineering_value ? 'border-red-600' : 'border-zinc-300'
+                  className={`w-full px-3 py-2 bg-white dark:bg-zinc-950 border rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500 ${
+                    errors.purpose_engineering_value ? 'border-red-600 dark:border-red-500' : 'border-zinc-300 dark:border-zinc-700'
                   }`}
                 />
               </div>
 
               {/* Operating principle — how it works */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                  Operating principle — how it works <span className="text-red-600">*</span>
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
+                  Operating principle — how it works <span className="text-red-600 dark:text-red-400">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -722,8 +747,8 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Skin, frames, stringers, and bulkheads share bending, shear, pressure, and torsion loads..."
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black ${
-                    errors.operating_principle ? 'border-red-600' : 'border-zinc-300'
+                  className={`w-full px-3 py-2 bg-white dark:bg-zinc-950 border rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500 ${
+                    errors.operating_principle ? 'border-red-600 dark:border-red-500' : 'border-zinc-300 dark:border-zinc-700'
                   }`}
                 />
               </div>
@@ -731,16 +756,16 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
             {/* Section 3: Context, Applications & Interfaces */}
             <section className="space-y-4">
-              <div className="border-b border-zinc-200 pb-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-black" />
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-black dark:text-white" />
                   <span>03 / Location, Applications & System Interfaces</span>
                 </h3>
               </div>
 
               {/* Location and installation context */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Location and installation context
                 </label>
                 <textarea
@@ -751,13 +776,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Aircraft center body from nose to tail..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
 
               {/* Applications and operating context */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Applications and operating context
                 </label>
                 <textarea
@@ -768,13 +793,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Operational flight envelopes, vehicle classes, altitude regimes..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
 
               {/* Interfaces and system connections */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Interfaces and system connections
                 </label>
                 <textarea
@@ -785,23 +810,23 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Structural attachments, electrical harnesses, hydraulic feeds..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
             </section>
 
             {/* Section 4: Verification, Safety & Standards */}
             <section className="space-y-4">
-              <div className="border-b border-zinc-200 pb-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-black" />
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-black dark:text-white" />
                   <span>04 / Verification, Safety & Technical Reference</span>
                 </h3>
               </div>
 
               {/* Identification and verification guidance */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Identification and verification guidance
                 </label>
                 <textarea
@@ -812,13 +837,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Part numbers, eddy current inspections, ultrasonic testing methods..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
 
               {/* Safety and limitations */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Safety and limitations
                 </label>
                 <textarea
@@ -829,13 +854,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="Fatigue life limits, maximum differential cabin pressure, dynamic limits..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
 
               {/* Technical reference guidance */}
               <div className="space-y-1">
-                <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                <label className="block font-mono text-[11px] text-zinc-800 dark:text-zinc-200 font-semibold">
                   Technical reference guidance
                 </label>
                 <textarea
@@ -846,26 +871,26 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                     setIsDirty(true);
                   }}
                   placeholder="FAA Handbooks, AIAA design manuals, NASA Technical Reports..."
-                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black text-xs leading-relaxed focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white text-xs leading-relaxed focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                 />
               </div>
             </section>
 
             {/* Section 5: Image Upload and Image Link */}
             <section className="space-y-4">
-              <div className="border-b border-zinc-200 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                    <ImageIcon className="w-4 h-4 text-black" />
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                    <ImageIcon className="w-4 h-4 text-black dark:text-white" />
                     <span>05 / Visual Hardware Documentation</span>
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                     Attach reference imagery via local device upload or external URL.
                   </p>
                 </div>
 
                 {/* Source Selection Toggle */}
-                <div className="inline-flex rounded-lg border border-zinc-300 p-0.5 bg-zinc-100 font-mono text-xs">
+                <div className="inline-flex rounded-lg border border-zinc-300 dark:border-zinc-700 p-0.5 bg-zinc-100 dark:bg-zinc-800 font-mono text-xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -873,7 +898,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setIsDirty(true);
                     }}
                     className={`px-3 py-1 rounded-md transition-colors flex items-center space-x-1 font-semibold ${
-                      imageSourceMode === 'upload' ? 'bg-black text-white shadow-xs' : 'text-zinc-600 hover:text-black'
+                      imageSourceMode === 'upload' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white'
                     }`}
                   >
                     <Upload className="w-3 h-3" />
@@ -886,7 +911,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setIsDirty(true);
                     }}
                     className={`px-3 py-1 rounded-md transition-colors flex items-center space-x-1 font-semibold ${
-                      imageSourceMode === 'url' ? 'bg-black text-white shadow-xs' : 'text-zinc-600 hover:text-black'
+                      imageSourceMode === 'url' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white'
                     }`}
                   >
                     <LinkIcon className="w-3 h-3" />
@@ -897,12 +922,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
               {/* Option A: Upload from Device */}
               {imageSourceMode === 'upload' && (
-                <div className="p-4 bg-zinc-50 border border-zinc-300 rounded-xl space-y-3">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-black uppercase">
+                    <span className="font-mono text-xs font-bold text-black dark:text-white uppercase">
                       Option A: Device Image Upload
                     </span>
-                    <span className="text-[10px] font-mono text-zinc-500">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                       JPG, JPEG, PNG, WebP (max 10MB)
                     </span>
                   </div>
@@ -917,7 +942,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
                   {uploadedImageData ? (
                     <div className="space-y-3">
-                      <div className="relative w-full h-44 rounded-lg overflow-hidden border border-zinc-300 bg-zinc-100 flex items-center justify-center">
+                      <div className="relative w-full h-44 rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
                         <img
                           src={uploadedImageData}
                           alt="Uploaded hardware preview"
@@ -925,7 +950,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-emerald-700 flex items-center space-x-1 font-semibold">
+                        <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 flex items-center space-x-1 font-semibold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Image loaded into persistent storage</span>
                         </span>
@@ -933,14 +958,14 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-3 py-1 text-xs font-mono bg-white border border-zinc-300 rounded hover:bg-zinc-100 text-black font-semibold"
+                            className="px-3 py-1 text-xs font-mono bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-black dark:text-white font-semibold"
                           >
                             Replace Image
                           </button>
                           <button
                             type="button"
                             onClick={handleRemoveUploadedImage}
-                            className="px-2.5 py-1 text-xs font-mono bg-white border border-red-300 rounded hover:bg-red-50 text-red-600"
+                            className="px-2.5 py-1 text-xs font-mono bg-white dark:bg-zinc-900 border border-red-300 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400"
                           >
                             Remove
                           </button>
@@ -950,20 +975,20 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                   ) : (
                     <div 
                       onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-zinc-300 hover:border-black rounded-lg p-6 text-center cursor-pointer transition-colors bg-white space-y-2"
+                      className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-black dark:hover:border-zinc-500 rounded-lg p-6 text-center cursor-pointer transition-colors bg-white dark:bg-zinc-900 space-y-2"
                     >
-                      <Upload className="w-8 h-8 mx-auto text-zinc-400" />
-                      <div className="text-xs font-bold text-black font-mono">
+                      <Upload className="w-8 h-8 mx-auto text-zinc-400 dark:text-zinc-500" />
+                      <div className="text-xs font-bold text-black dark:text-white font-mono">
                         Click to select an image from your computer
                       </div>
-                      <p className="text-[11px] text-zinc-500 font-mono">
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
                         Supports standard aerospace imagery in JPG, PNG, or WebP.
                       </p>
                     </div>
                   )}
 
                   {uploadError && (
-                    <div className="text-xs font-mono text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                    <div className="text-xs font-mono text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2 rounded border border-red-200 dark:border-red-900/50">
                       {uploadError}
                     </div>
                   )}
@@ -972,12 +997,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
               {/* Option B: Image URL */}
               {imageSourceMode === 'url' && (
-                <div className="p-4 bg-zinc-50 border border-zinc-300 rounded-xl space-y-3">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-black uppercase">
+                    <span className="font-mono text-xs font-bold text-black dark:text-white uppercase">
                       Option B: Direct Image URL
                     </span>
-                    <span className="text-[10px] font-mono text-zinc-500">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                       Hosted HTTPS Link
                     </span>
                   </div>
@@ -992,13 +1017,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setIsDirty(true);
                       }}
                       placeholder="https://images.unsplash.com/..."
-                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black"
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                     />
                   </div>
 
                   {imageUrl && (
                     <div className="space-y-2">
-                      <div className="relative w-full h-44 rounded-lg overflow-hidden border border-zinc-300 bg-zinc-100 flex items-center justify-center">
+                      <div className="relative w-full h-44 rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
                         <img
                           src={imageUrl}
                           alt="External URL preview"
@@ -1008,12 +1033,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         />
                       </div>
                       {urlImageError ? (
-                        <div className="text-xs font-mono text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                        <div className="text-xs font-mono text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2 rounded border border-red-200 dark:border-red-900/50">
                           Error: The provided URL could not be loaded as an image. Please verify the link.
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-emerald-700 flex items-center space-x-1 font-semibold">
+                          <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 flex items-center space-x-1 font-semibold">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Valid external image verified</span>
                           </span>
@@ -1023,7 +1048,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                               setImageUrl('');
                               setIsDirty(true);
                             }}
-                            className="text-xs font-mono text-zinc-500 hover:text-red-600"
+                            className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                           >
                             Clear URL
                           </button>
@@ -1036,13 +1061,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
               {/* Optional Image Metadata */}
               <div className="pt-2 space-y-3">
-                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-700 block">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 block">
                   Image Metadata & Attribution (Optional)
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Image Title</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Image Title</label>
                     <input
                       type="text"
                       value={imageTitle}
@@ -1051,12 +1076,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setIsDirty(true);
                       }}
                       placeholder="e.g. Semi-monocoque Airframe Section"
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Alt Text (Accessibility)</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Alt Text (Accessibility)</label>
                     <input
                       type="text"
                       value={imageAltText}
@@ -1065,13 +1090,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setIsDirty(true);
                       }}
                       placeholder="e.g. Aluminum-lithium aircraft fuselage barrel"
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block font-mono text-[10px] text-zinc-600">Image Caption</label>
+                  <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Image Caption</label>
                   <input
                     type="text"
                     value={imageCaption}
@@ -1080,13 +1105,13 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setIsDirty(true);
                     }}
                     placeholder="e.g. Ring frames and longitudinal stringers visible during fuselage assembly"
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black"
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Source / Attribution</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Source / Attribution</label>
                     <input
                       type="text"
                       value={imageSource}
@@ -1095,12 +1120,12 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setIsDirty(true);
                       }}
                       placeholder="e.g. NASA Langley Research Center"
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Source Website / Reference URL</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Source Website / Reference URL</label>
                     <input
                       type="url"
                       value={imageSourceUrl}
@@ -1109,21 +1134,21 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setIsDirty(true);
                       }}
                       placeholder="https://..."
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white font-mono focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white placeholder-zinc-400 dark:placeholder-zinc-500"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Verification Status</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Verification Status</label>
                     <select
                       value={imageVerificationStatus}
                       onChange={(e) => {
                         setImageVerificationStatus(e.target.value as VerificationStatus);
                         setIsDirty(true);
                       }}
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white font-mono focus:outline-none focus:border-black dark:focus:border-white"
                     >
                       <option value="Verified">Verified</option>
                       <option value="Unverified">Unverified</option>
@@ -1132,7 +1157,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block font-mono text-[10px] text-zinc-600">Date Verified</label>
+                    <label className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-300">Date Verified</label>
                     <input
                       type="date"
                       value={imageVerifiedAt}
@@ -1140,7 +1165,7 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setImageVerifiedAt(e.target.value);
                         setIsDirty(true);
                       }}
-                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded text-xs text-black font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-black dark:text-white font-mono focus:outline-none focus:border-black dark:focus:border-white"
                     />
                   </div>
                 </div>
@@ -1149,16 +1174,16 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
 
             {/* Section 6: Administrative Review Date & Presentation Controls */}
             <section className="space-y-4 pt-2">
-              <div className="border-b border-zinc-200 pb-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-black" />
+              <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-black dark:text-white flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-black dark:text-white" />
                   <span>06 / Review & Publishing Controls</span>
                 </h3>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
+                  <label className="block font-mono text-[11px] text-zinc-700 dark:text-zinc-300 font-semibold">
                     Scheduled / Latest Review Date
                   </label>
                   <input
@@ -1168,15 +1193,15 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                       setReviewDate(e.target.value);
                       setIsDirty(true);
                     }}
-                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-black font-mono text-xs focus:outline-none focus:border-black"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-black dark:text-white font-mono text-xs focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block font-mono text-[11px] text-zinc-700 font-semibold">
-                    Homepage Presentation <span className="text-zinc-500 font-normal">(Synced with top)</span>
+                  <label className="block font-mono text-[11px] text-zinc-700 dark:text-zinc-300 font-semibold">
+                    Homepage Presentation <span className="text-zinc-500 dark:text-zinc-400 font-normal">(Synced with top)</span>
                   </label>
-                  <label className="flex items-center space-x-3 p-2.5 rounded-lg border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 cursor-pointer transition-colors">
+                  <label className="flex items-center space-x-3 p-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       checked={featured}
@@ -1184,14 +1209,14 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
                         setFeatured(e.target.checked);
                         setIsDirty(true);
                       }}
-                      className="h-4 w-4 rounded border-zinc-300 text-black focus:ring-black accent-black"
+                      className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600 text-black dark:text-white focus:ring-black dark:focus:ring-white accent-black dark:accent-white"
                     />
                     <div className="space-y-0.5">
-                      <span className="block font-mono text-xs font-bold text-black flex items-center space-x-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-black" />
+                      <span className="block font-mono text-xs font-bold text-black dark:text-white flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-black dark:text-white" />
                         <span>Feature on Homepage Highlights</span>
                       </span>
-                      <span className="block text-[10px] text-zinc-600 font-mono">
+                      <span className="block text-[10px] text-zinc-600 dark:text-zinc-400 font-mono">
                         {featured ? '★ Active on Homepage (Enabled)' : 'Standard catalog listing (Disabled)'}
                       </span>
                     </div>
@@ -1279,16 +1304,16 @@ export const EncyclopediaEntryFormModal: React.FC<EncyclopediaEntryFormModalProp
         {/* Accidental Data Loss Prompt */}
         {showExitConfirm && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="bg-white border border-zinc-300 rounded-xl p-5 max-w-sm w-full space-y-3 shadow-xl">
-              <h3 className="font-bold text-black text-sm">Discard Unsaved Changes?</h3>
-              <p className="text-xs text-zinc-600">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-xl p-5 max-w-sm w-full space-y-3 shadow-xl">
+              <h3 className="font-bold text-black dark:text-white text-sm">Discard Unsaved Changes?</h3>
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
                 You have unsaved edits in this encyclopedia form. Closing now will discard your modifications.
               </p>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowExitConfirm(false)}
-                  className="px-3 py-1.5 text-xs font-mono font-semibold bg-zinc-100 hover:bg-zinc-200 text-black rounded"
+                  className="px-3 py-1.5 text-xs font-mono font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-black dark:text-white rounded"
                 >
                   Keep Editing
                 </button>

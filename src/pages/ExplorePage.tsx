@@ -2,9 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, ArrowUpDown, X, Rocket, AlertCircle, RefreshCw } from 'lucide-react';
 import { RocketComponent, RocketCategory } from '../types/rocket';
 import { ComponentCard } from '../components/ComponentCard';
+import { RecentSearchService } from '../services/recentSearchService';
 
 interface ExplorePageProps {
   components: RocketComponent[];
+  categories?: string[];
   initialCategory?: string;
   initialSearch?: string;
   onSelectComponent: (id: string) => void;
@@ -13,19 +15,9 @@ interface ExplorePageProps {
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-newest' | 'category';
 
-const CATEGORIES: ('All' | RocketCategory)[] = [
-  'All',
-  'Propulsion',
-  'Structures',
-  'Avionics',
-  'Guidance & Control',
-  'Electrical Systems',
-  'Thermal Protection',
-  'Recovery Systems'
-];
-
 export const ExplorePage: React.FC<ExplorePageProps> = ({
   components,
+  categories,
   initialCategory = 'All',
   initialSearch = '',
   onSelectComponent,
@@ -34,6 +26,20 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [sortBy, setSortBy] = useState<SortOption>('alpha-asc');
+
+  // Dynamic categories list strictly aligned with database records
+  const availableCategories = useMemo(() => {
+    const list = new Set<string>();
+    list.add('All');
+
+    // Only include categories that actually exist on components in the database
+    components.forEach((c) => {
+      const cat = c.category?.trim();
+      if (cat) list.add(cat);
+    });
+
+    return Array.from(list);
+  }, [components]);
 
   // Filter and sort logic
   const filteredAndSortedComponents = useMemo(() => {
@@ -109,6 +115,11 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && search.trim()) {
+                  RecentSearchService.addRecentSearch(search.trim());
+                }
+              }}
               placeholder="Search components..."
               className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs sm:text-sm font-mono focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition-colors"
             />
@@ -147,19 +158,27 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             <Filter className="w-3 h-3 text-black dark:text-white" />
             <span>Category:</span>
           </span>
-          {CATEGORIES.map((cat) => {
+          {availableCategories.map((cat) => {
             const isSelected = selectedCategory === cat;
+            const count = cat === 'All' ? components.length : components.filter((c) => c.category === cat).length;
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap transition-all flex items-center space-x-1.5 ${
                   isSelected
                     ? 'bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white shadow-xs font-semibold'
                     : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700'
                 }`}
               >
-                {cat}
+                <span>{cat}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  isSelected
+                    ? 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black'
+                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                }`}>
+                  {count}
+                </span>
               </button>
             );
           })}

@@ -13,6 +13,7 @@ import { CategoriesPage } from './pages/CategoriesPage';
 import { AdminPage } from './pages/AdminPage';
 import { AboutPage } from './pages/AboutPage';
 import { ComponentService } from './services/componentService';
+import { RecentSearchService } from './services/recentSearchService';
 import { RocketCategory, RocketComponent } from './types/rocket';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [components, setComponents] = useState<RocketComponent[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Classic Night Mode state with localStorage persistence
   const [isNightMode, setIsNightMode] = useState<boolean>(() => {
@@ -47,23 +49,29 @@ export default function App() {
     setIsNightMode((prev) => !prev);
   };
 
-  // Load components on mount with data synchronization
+  const refreshData = async () => {
+    try {
+      const [compResult, catList] = await Promise.all([
+        ComponentService.fetchComponents(),
+        ComponentService.fetchCategories()
+      ]);
+      setComponents(compResult.components);
+      setCategories(catList);
+    } catch (err) {
+      console.warn('Data sync exception:', err);
+    }
+  };
+
+  // Load components and categories on mount with live database synchronization
   useEffect(() => {
     // 1. Instant load from local persistent cache for zero layout shift
     const initialList = ComponentService.getAllComponents();
     setComponents(initialList);
+    const initialCats = ComponentService.getCachedCategories();
+    setCategories(initialCats);
 
     // 2. Query live database asynchronously in background
-    const syncDatabase = async () => {
-      try {
-        const result = await ComponentService.fetchComponents();
-        setComponents(result.components);
-      } catch (err) {
-        console.warn('Initial data sync fallback:', err);
-      }
-    };
-
-    syncDatabase();
+    refreshData();
   }, []);
 
   const scrollToTop = () => {
@@ -85,6 +93,9 @@ export default function App() {
   };
 
   const handleSearch = (query: string) => {
+    if (query && query.trim()) {
+      RecentSearchService.addRecentSearch(query.trim());
+    }
     setSearchFilter(query);
     setActiveTab('explore');
     scrollToTop();
@@ -92,20 +103,17 @@ export default function App() {
 
   const handleAddComponent = async (data: Partial<RocketComponent>) => {
     await ComponentService.createComponent(data);
-    const res = await ComponentService.fetchComponents();
-    setComponents(res.components);
+    await refreshData();
   };
 
   const handleEditComponent = async (id: string, updates: Partial<RocketComponent>) => {
     await ComponentService.updateComponent(id, updates);
-    const res = await ComponentService.fetchComponents();
-    setComponents(res.components);
+    await refreshData();
   };
 
   const handleDeleteComponent = async (id: string) => {
     await ComponentService.deleteComponent(id);
-    const res = await ComponentService.fetchComponents();
-    setComponents(res.components);
+    await refreshData();
     if (selectedComponentId === id) {
       setSelectedComponentId(null);
       setActiveTab('explore');
@@ -113,8 +121,8 @@ export default function App() {
   };
 
   const handleResetDefaults = async () => {
-    const fresh = await ComponentService.resetToDefaults();
-    setComponents(fresh);
+    await ComponentService.resetToDefaults();
+    await refreshData();
   };
 
   const handleToggleFeatured = async (id: string) => {
@@ -143,6 +151,7 @@ export default function App() {
         {activeTab === 'home' && (
           <HomePage
             components={components}
+            categories={categories}
             onSelectComponent={handleSelectComponent}
             onNavigate={(tab, cat) => handleNavigate(tab, cat)}
             onSearch={handleSearch}
@@ -152,6 +161,7 @@ export default function App() {
         {activeTab === 'explore' && (
           <ExplorePage
             components={components}
+            categories={categories}
             initialCategory={categoryFilter}
             initialSearch={searchFilter}
             onSelectComponent={handleSelectComponent}
@@ -162,6 +172,7 @@ export default function App() {
         {activeTab === 'categories' && (
           <CategoriesPage
             components={components}
+            categories={categories}
             onSelectCategory={(cat: RocketCategory) => {
               setCategoryFilter(cat);
               setActiveTab('explore');
@@ -201,6 +212,7 @@ export default function App() {
         {activeTab === 'admin' && (
           <AdminPage
             components={components}
+            categories={categories}
             onViewComponent={handleSelectComponent}
             onAddComponent={handleAddComponent}
             onEditComponent={handleEditComponent}

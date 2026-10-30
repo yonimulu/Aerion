@@ -1,15 +1,153 @@
-import { getSupabase } from '../lib/supabase';
+import { getSupabase, getActiveSupabaseCredentials } from '../lib/supabase';
+import { RocketComponent } from '../types/rocket';
 
 export const STORAGE_BUCKET = 'aerospace-media';
 
 export interface StorageUploadResult {
   success: boolean;
   publicUrl?: string;
+  signedUrl?: string;
   storagePath?: string;
   error?: string;
 }
 
 export const StorageService = {
+  /**
+   * Resolves any image URL or storage relative path into a fully qualified, displayable browser URL.
+   */
+  resolveImageUrl(pathOrUrl?: string | null, storagePath?: string | null): string {
+    // 1. If pathOrUrl is already an absolute HTTP(S), data:, or blob: URL, return directly
+    if (pathOrUrl) {
+      const trimmed = pathOrUrl.trim();
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:')
+      ) {
+        return trimmed;
+      }
+    }
+
+    // 2. Check storagePath if it was stored as a full URL or data: URI
+    if (storagePath) {
+      const trimmedStorage = storagePath.trim();
+      if (
+        trimmedStorage.startsWith('http://') ||
+        trimmedStorage.startsWith('https://') ||
+        trimmedStorage.startsWith('data:') ||
+        trimmedStorage.startsWith('blob:')
+      ) {
+        return trimmedStorage;
+      }
+    }
+
+    // 3. Extract and sanitize relative path
+    const rawTarget = (storagePath || pathOrUrl || '').trim();
+    if (!rawTarget) return '';
+
+    // Strip legacy and bucket prefixes
+    let cleanPath = rawTarget
+      .replace(/^fallback:\/\//, '')
+      .replace(/^local:\/\/offline\//, '')
+      .replace(/^\/+/, '');
+
+    if (cleanPath.startsWith(`${STORAGE_BUCKET}/`)) {
+      cleanPath = cleanPath.substring(STORAGE_BUCKET.length + 1);
+    }
+
+    if (!cleanPath) return '';
+
+    // 4. Construct via active Supabase instance if available
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(cleanPath);
+      if (data?.publicUrl) {
+        return data.publicUrl;
+      }
+    }
+
+    // 5. Fallback: construct public URL using active credentials
+    const creds = getActiveSupabaseCredentials();
+    if (creds.url && !creds.url.includes('your-project.supabase.co')) {
+      const baseUrl = creds.url.replace(/\/+$/, '');
+      return `${baseUrl}/storage/v1/object/public/${STORAGE_BUCKET}/${cleanPath}`;
+    }
+
+    return rawTarget;
+  },
+
+  /**
+   * Resolves the primary display image URL for any RocketComponent.
+   */
+  resolveComponentImageUrl(component?: Partial<RocketComponent> | null): string {
+    if (!component) return '';
+
+    // If image_url is a full absolute URL, prefer it
+    if (component.image_url) {
+      const trimmed = component.image_url.trim();
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:')
+      ) {
+        return trimmed;
+      }
+    }
+
+    // If imageUrl is a full absolute URL, prefer it
+    if (component.imageUrl) {
+      const trimmed = component.imageUrl.trim();
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:')
+      ) {
+        return trimmed;
+      }
+    }
+
+    // Resolve storage path or relative URL to Supabase public URL
+    return this.resolveImageUrl(component.image_url || component.imageUrl, component.image_storage_path);
+  },
+
+  /**
+   * Generates a signed URL if a Supabase Storage bucket is configured as private.
+   */
+  async getSignedUrl(storagePath: string, expiresInSeconds: number = 60 * 60 * 24 * 30): Promise<string | null> {
+    const supabase = getSupabase();
+    if (!supabase || !storagePath) return null;
+
+    try {
+      let cleanPath = storagePath
+        .replace(/^fallback:\/\//, '')
+        .replace(/^local:\/\/offline\//, '')
+        .replace(/^\/+/, '');
+
+      if (cleanPath.startsWith(`${STORAGE_BUCKET}/`)) {
+        cleanPath = cleanPath.substring(STORAGE_BUCKET.length + 1);
+      }
+
+      if (!cleanPath || cleanPath.startsWith('http') || cleanPath.startsWith('data:')) {
+        return null;
+      }
+
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(cleanPath, expiresInSeconds);
+
+      if (error || !data?.signedUrl) {
+        return null;
+      }
+
+      return data.signedUrl;
+    } catch {
+      return null;
+    }
+  },
+
   /**
    * Uploads an image file to the Supabase Storage 'aerospace-media' bucket.
    */
@@ -47,11 +185,11 @@ export const StorageService = {
       const fileName = `${cleanPrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.${fileExt}`;
       const filePath = `entries/${fileName}`;
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (error) {
@@ -75,9 +213,23 @@ export const StorageService = {
         .from(STORAGE_BUCKET)
         .getPublicUrl(filePath);
 
+      // Also attempt to pre-generate a signed URL if the bucket is configured as private
+      let signedUrl: string | undefined;
+      try {
+        const { data: signedData } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
+        if (signedData?.signedUrl) {
+          signedUrl = signedData.signedUrl;
+        }
+      } catch {
+        // Ignore if signed URL generation is not permitted
+      }
+
       return {
         success: true,
         publicUrl: urlData.publicUrl,
+        signedUrl,
         storagePath: filePath
       };
     } catch (err: any) {
@@ -99,7 +251,12 @@ export const StorageService = {
     }
 
     try {
-      const cleanPath = storagePath.replace(/^fallback:\/\//, '');
+      const cleanPath = storagePath
+        .replace(/^fallback:\/\//, '')
+        .replace(/^local:\/\/offline\//, '')
+        .replace(/^aerospace-media\//, '')
+        .replace(/^\/+/, '');
+
       const { error } = await supabase.storage
         .from(STORAGE_BUCKET)
         .remove([cleanPath]);
